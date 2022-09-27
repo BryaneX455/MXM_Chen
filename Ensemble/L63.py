@@ -36,8 +36,10 @@ def fx(x,dt):
     return [xn,yn,zn]
 
 def hx(x):
-    
-   return np.array([x[0]])
+    xo = x[0] + np.random.normal(mu, sig)
+    yo = x[1] + np.random.normal(mu, sig)
+    zo = x[2] + np.random.normal(mu, sig)
+    return np.array([xo,yo,zo])
 
 N = 4000
 dt = 0.01
@@ -115,13 +117,17 @@ f = EnsembleKalmanFilter(x=[x_t[0], y_t[0], z_t[0]], P=np.cov([x_t, y_t, z_t]), 
                          N=N, hx=hx, fx=fx)
 f.initialize([x_t[0], y_t[0], z_t[0]], np.cov([[x_t[0],0], [y_t[0],0], [z_t[0],0]]))
 xiL = []
+#fig, ax = plt.subplots(2,2)
 for i in range(N+1):
     z = [x_obs_full[i], y_obs_full[i], z_obs_full[i]]
     f.predict()
     xi, K = f.update(np.asarray(z))
-    if i%1000 == 0:
-        sb.heatmap(K)
-    xiL.append(xi)  
+    #if i%1000 == 0 and i > 1:
+     #   ax[int(math.floor(i/1000)/3)][int((i/1000-1)%2)].matshow(K)    
+    xiL.append(xi) 
+#plt.colorbar()
+#fig.tight_layout()
+#plt.show()
 xl = []
 yl = []
 zl = []
@@ -129,6 +135,7 @@ for i in range(N+1):
    xl.append(xiL[i][0])
    yl.append(xiL[i][1])
    zl.append(xiL[i][2])
+   
 fig, ax = plt.subplots(3)
 
 ax[0].scatter(tobs,x_obs,s=3.5)
@@ -149,7 +156,7 @@ ax[2].plot(t,zl,'g',linewidth=0.7)
 ax[2].set_title('(c) z_true, z_obs, z_filt')
 #ax[2].legend(['w noises','w/o noises', 'filt'],loc='lower left')
 
-fig.legend(['w noises','w/o noises', 'filt'], bbox_to_anchor=(1.3, 0.6))
+fig.legend(['w noises','w/o noises', 'filt'], bbox_to_anchor=(0.6, 1.3))
 fig.tight_layout()
 
 plt.show()
