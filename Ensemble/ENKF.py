@@ -181,7 +181,6 @@ class EnsembleKalmanFilter(object):
         N = self.N
         dim_z = len(z)
         sigmas_h = zeros((N, dim_z))
-
         # transform sigma points into measurement space
         for i in range(N):
             sigmas_h[i] = self.hx(self.sigmas[i])
@@ -189,11 +188,14 @@ class EnsembleKalmanFilter(object):
         z_mean = np.mean(sigmas_h, axis=0)
 
         P_zz = (outer_product_sum(sigmas_h - z_mean) / (N-1)) + R
-        P_xz = outer_product_sum(
-            self.sigmas - self.x, sigmas_h - z_mean) / (N - 1)
+        P_xz = outer_product_sum(self.sigmas - self.x, sigmas_h - z_mean) / (N - 1)
 
         self.S = P_zz
         self.SI = self.inv(self.S)
+        # print(sigmas_h .shape)
+        
+        # print(outer_product_sum(self.sigmas - self.x, sigmas_h - z_mean) / (N - 1) + R)
+        # print(P_zz.shape)
         self.K = dot(P_xz, self.SI)
 
         e_r = multivariate_normal(self._mean_z, R, N)
@@ -207,7 +209,9 @@ class EnsembleKalmanFilter(object):
         self.z = deepcopy(z)
         self.x_post = self.x.copy()
         self.P_post = self.P.copy()
-
+        
+        return self.x_post, self.K
+    
     def predict(self):
         """ Predict next position. """
 
