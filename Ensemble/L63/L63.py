@@ -45,6 +45,13 @@ N = 4000
 dt = 0.01
 dtobs = 0.2
 tobs = createList(0, 40, dtobs)
+
+gam = 10
+rho = 28
+bet = 8/3
+mu = 0
+sig = np.sqrt(2)
+
 t = createList(0, 40, dt)
 x_t = np.zeros(N+1)
 y_t = np.zeros(N+1)
@@ -56,21 +63,17 @@ z_t[0] = 25.46091
 x_obs = np.zeros(201)
 y_obs = np.zeros(201)
 z_obs = np.zeros(201)
-x_obs[0] = 1.508870
-y_obs[0] = -1.531271
-z_obs[0] = 25.46091
+x_obs[0] = 1.508870 + np.random.normal(mu, sig)
+y_obs[0] = -1.531271 + np.random.normal(mu, sig)
+z_obs[0] = 25.46091 + np.random.normal(mu, sig)
 
 x_obs_full = np.zeros(N+1)
 y_obs_full = np.zeros(N+1)
 z_obs_full = np.zeros(N+1)
-x_obs_full[0] = 1.508870
-y_obs_full[0] = -1.531271
-z_obs_full[0] = 25.46091
-gam = 10
-rho = 28
-bet = 8/3
-mu = 0
-sig = np.sqrt(2);
+x_obs_full[0] = 1.508870 + np.random.normal(mu, sig)
+y_obs_full[0] = -1.531271 + np.random.normal(mu, sig)
+z_obs_full[0] = 25.46091 + np.random.normal(mu, sig)
+
 
 for i in range(1,N+1):
     x_t[i] = x_t[i-1] + ( gam*(y_t[i-1]-x_t[i-1]) ) * dt;
@@ -108,13 +111,16 @@ ax[2].legend(['w noises','w/o noises'],loc='lower left')
 fig.tight_layout()
 
 plt.show()
+fig.savefig('L63_TO', format='eps')
+fig.savefig('L63_TO.png')
+
 
 # Implementing Ensemble Kalman Filter
 dim_z = 3
 dt = 0.01
-En_Num = 500 # Ensemble Number/ Sigma Points
+En_Num = 2 # Ensemble Number/ Sigma Points
 f = EnsembleKalmanFilter(x=[x_t[0], y_t[0], z_t[0]], P=np.cov([x_t, y_t, z_t]), dim_z=dim_z, dt=dt,
-                         N=N, hx=hx, fx=fx)
+                         N=En_Num, hx=hx, fx=fx)
 f.initialize([x_t[0], y_t[0], z_t[0]], np.cov([[x_t[0],0], [y_t[0],0], [z_t[0],0]]))
 xiL = []
 #fig, ax = plt.subplots(2,2)
@@ -138,25 +144,26 @@ for i in range(N+1):
    
 fig, ax = plt.subplots(3)
 
-ax[0].scatter(tobs,x_obs,s=3.5)
+
 ax[0].plot(t,x_t,'r--',linewidth=0.7)
 ax[0].plot(t,xl,'g',linewidth=0.7)
-ax[0].set_title('(a) x_true, x_obs, x_filt')
+ax[0].set_title('(a) x_true, x_filt_En2')
 #ax[0].legend(['w noises','w/o noises', 'filt'],loc='lower left')
 
-ax[1].scatter(tobs,y_obs,s=3.5)
+
 ax[1].plot(t,y_t,'r--',linewidth=0.7)
 ax[1].plot(t,yl,'g',linewidth=0.7)
-ax[1].set_title('(b) y_true_, y_obs, y_filt')
+ax[1].set_title('(b) y_true_, y_filt_En2')
 #ax[1].legend(['w noises','w/o noises', 'filt'],loc='lower left')
 
-ax[2].scatter(tobs,z_obs,s=3.5)
+
 ax[2].plot(t,z_t,'r--',linewidth=0.7)
 ax[2].plot(t,zl,'g',linewidth=0.7)
-ax[2].set_title('(c) z_true, z_obs, z_filt')
+ax[2].set_title('(c) z_true, z_filt_En2')
 #ax[2].legend(['w noises','w/o noises', 'filt'],loc='lower left')
 
-fig.legend(['w noises','w/o noises', 'filt'], bbox_to_anchor=(0.6, 1.3))
+fig.legend(['w/o noises', 'filt'], bbox_to_anchor=(0.65, 1.12))
 fig.tight_layout()
 
 plt.show()
+fig.savefig('L63_EN2.eps', format='eps')
