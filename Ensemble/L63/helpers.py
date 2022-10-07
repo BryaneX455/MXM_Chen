@@ -403,7 +403,7 @@ def compare_kf(kf1, kf2, log=True, **kwargs):
             different_keys.append(attr)
 
     if len(different_keys) > 0:
-        return different
+        return different_keys
     else:
         return None
 

@@ -36,8 +36,8 @@ def fx(x,dt):
 def t2o(x):
     xo = x[0] + np.random.normal(mu, sig)
     yo = x[1] + np.random.normal(mu, sig)
-    zo = x[2] + np.random.normal(mu, sig)
-    return np.array([xo,yo, zo])
+    # zo = x[2] + np.random.normal(mu, sig)
+    return np.array([xo,yo])
 
 N = 4000
 dt = 0.01
@@ -83,7 +83,7 @@ for i in range(1,N+1):
 for i in range(1,N+1):
     x_obs_full[i] = x_t[i] + np.random.normal(mu, sig)
     y_obs_full[i] = y_t[i] + np.random.normal(mu, sig)
-    z_obs_full[i] = z_t[i] + np.random.normal(mu, sig)
+    # z_obs_full[i] = z_t[i] + np.random.normal(mu, sig)
     
 for i in range(1,201):
     x_obs[i] = x_t[i*20] + np.random.normal(mu, sig)
@@ -115,18 +115,18 @@ fig.savefig('L63_TO_'+ err_name +'.eps', format='eps')
 
 
 # Implementing Ensemble Kalman Filter
-o_dim = 3
+o_dim = 2
 dt = 0.01
-En_Num = 100 # Ensemble Number/ Sigma Points
+En_Num = 200 # Ensemble Number/ Sigma Points
 en_num_str = str(En_Num) + '_'
 
 # ENKF 
-f = Ensemble_Kalman_Filter(x_init=[x_t[0], y_t[0], z_t[0]], x_init_cov=np.cov([x_t, y_t, z_t]), o_dim=o_dim, dt=dt,
+f = Ensemble_Kalman_Filter(x_init=[x_t[0], y_t[0], z_t[0]], x_init_cov=np.eye(3), o_dim=o_dim, dt=dt,
                          en_num=En_Num, t2o=t2o, fx=fx)
 xiL = []
 #fig, ax = plt.subplots(2,2)
 for i in range(N+1):
-    z = [x_obs_full[i], y_obs_full[i], z_obs_full[i]]
+    z = [x_obs_full[i], y_obs_full[i]]
     f.forward_approx()
     xi, K = f.enks_filter(np.asarray(z))
     xiL.append(xi) 
