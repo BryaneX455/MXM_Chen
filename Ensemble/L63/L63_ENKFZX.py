@@ -6,9 +6,7 @@ Created on Sun Sep 25 15:38:22 2022
 """
 import numpy as np
 import matplotlib.pyplot as plt
-import seaborn as sb
-import math
-from ENKF import EnsembleKalmanFilter
+from ENKF_ZX import Ensemble_Kalman_Filter
 
 
 def createList(r1, r2, dt):
@@ -22,7 +20,7 @@ def createList(r1, r2, dt):
   
         # loop to append successors to 
         # list until r2 is reached.
-        while(r1 < r2+0.01):
+        while(r1 < r2+dt):
               
             res.append(r1)
             r1 += dt
@@ -35,11 +33,11 @@ def fx(x,dt):
     
     return [xn,yn,zn]
 
-def hx(x):
+def t2o(x):
     xo = x[0] + np.random.normal(mu, sig)
     yo = x[1] + np.random.normal(mu, sig)
     zo = x[2] + np.random.normal(mu, sig)
-    return np.array([xo,yo,zo])
+    return np.array([xo,yo, zo])
 
 N = 4000
 dt = 0.01
@@ -50,7 +48,9 @@ gam = 10
 rho = 28
 bet = 8/3
 mu = 0
-sig = np.sqrt(2)
+var = 100
+sig = np.sqrt(var)
+err_name = '0M' + str(var) + 'V'
 
 t = createList(0, 40, dt)
 x_t = np.zeros(N+1)
@@ -111,29 +111,25 @@ ax[2].legend(['w noises','w/o noises'],loc='lower left')
 fig.tight_layout()
 
 plt.show()
-fig.savefig('L63_TO', format='eps')
-fig.savefig('L63_TO.png')
+fig.savefig('L63_TO_'+ err_name +'.eps', format='eps')
 
 
 # Implementing Ensemble Kalman Filter
-dim_z = 3
+o_dim = 3
 dt = 0.01
-En_Num = 2 # Ensemble Number/ Sigma Points
-f = EnsembleKalmanFilter(x=[x_t[0], y_t[0], z_t[0]], P=np.cov([x_t, y_t, z_t]), dim_z=dim_z, dt=dt,
-                         N=En_Num, hx=hx, fx=fx)
-f.initialize([x_t[0], y_t[0], z_t[0]], np.cov([[x_t[0],0], [y_t[0],0], [z_t[0],0]]))
+En_Num = 100 # Ensemble Number/ Sigma Points
+en_num_str = str(En_Num) + '_'
+
+# ENKF 
+f = Ensemble_Kalman_Filter(x_init=[x_t[0], y_t[0], z_t[0]], x_init_cov=np.cov([x_t, y_t, z_t]), o_dim=o_dim, dt=dt,
+                         en_num=En_Num, t2o=t2o, fx=fx)
 xiL = []
 #fig, ax = plt.subplots(2,2)
 for i in range(N+1):
     z = [x_obs_full[i], y_obs_full[i], z_obs_full[i]]
-    f.predict()
-    xi, K = f.update(np.asarray(z))
-    #if i%1000 == 0 and i > 1:
-     #   ax[int(math.floor(i/1000)/3)][int((i/1000-1)%2)].matshow(K)    
+    f.forward_approx()
+    xi, K = f.enks_filter(np.asarray(z))
     xiL.append(xi) 
-#plt.colorbar()
-#fig.tight_layout()
-#plt.show()
 xl = []
 yl = []
 zl = []
@@ -144,26 +140,22 @@ for i in range(N+1):
    
 fig, ax = plt.subplots(3)
 
-
 ax[0].plot(t,x_t,'r--',linewidth=0.7)
 ax[0].plot(t,xl,'g',linewidth=0.7)
-ax[0].set_title('(a) x_true, x_filt_En2')
-#ax[0].legend(['w noises','w/o noises', 'filt'],loc='lower left')
-
+ax[0].set_title('(a) x_true, x_filt_En' + str(En_Num))
 
 ax[1].plot(t,y_t,'r--',linewidth=0.7)
 ax[1].plot(t,yl,'g',linewidth=0.7)
-ax[1].set_title('(b) y_true_, y_filt_En2')
-#ax[1].legend(['w noises','w/o noises', 'filt'],loc='lower left')
-
+ax[1].set_title('(b) y_true_, y_filt_En' + str(En_Num))
 
 ax[2].plot(t,z_t,'r--',linewidth=0.7)
 ax[2].plot(t,zl,'g',linewidth=0.7)
-ax[2].set_title('(c) z_true, z_filt_En2')
-#ax[2].legend(['w noises','w/o noises', 'filt'],loc='lower left')
+ax[2].set_title('(c) z_true, z_filt_En' + str(En_Num))
 
-fig.legend(['w/o noises', 'filt'], bbox_to_anchor=(0.65, 1.12))
+ax[2].legend(['w/o noises', 'filt'], loc = 'lower left')
 fig.tight_layout()
 
 plt.show()
-fig.savefig('L63_EN2.eps', format='eps')
+fig.savefig('L63_EN'+ en_num_str + err_name +'.eps', format='eps')
+
+

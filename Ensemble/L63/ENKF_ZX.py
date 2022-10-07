@@ -7,6 +7,7 @@ Created on Wed Sep 28 09:15:03 2022
 import numpy as np
 from numpy.random import multivariate_normal
 from helpers import outer_product_sum
+from copy import deepcopy
 class Ensemble_Kalman_Filter():
     """
         This class implements the Ensemble Kalman Filter (ENKF). The ENKF uses certain number of 
@@ -33,7 +34,7 @@ class Ensemble_Kalman_Filter():
             raise ValueError('x must be a 1D array')
             
         self.x_dim = len(x_init)
-        self.o_dim = len(o_dim)
+        self.o_dim = o_dim
         self.en_num = en_num
         self.t2o = t2o
         self.fx = fx
@@ -55,6 +56,8 @@ class Ensemble_Kalman_Filter():
         self.Q = np.eye(self.x_dim)
         self.R = np.eye(self.o_dim)
         
+        self.sigmas = multivariate_normal(mean=x_init, cov=x_init_cov, size=self.en_num)
+        
     def forward_approx(self):
         en_num = self.en_num
         for i,s in enumerate(self.sigmas):
@@ -65,4 +68,54 @@ class Ensemble_Kalman_Filter():
         
         self.x = np.mean(self.sigmas, axis = 0)
         self.C = outer_product_sum(self.sigmas - self.x) / (en_num - 1)
+        
+        # Calculate posterior
+        
+        
+        # Save x prior state
+        self.x_prior = np.copy(self.x)
+        self.C_prior = np.copy(self.C)
+        
+    def enks_filter(self, o, R = None):
+        # Check if the observation is empty
+        if o is None:
+            self.o = np.array([[None]*self.o_dim]).T
+            self.x_post = self.x.copy()
+            self.C_post = self.C.copy()
+            return
+        
+        if R is None:
+            R = self.R
+        if np.isscalar(R):
+            R = np.eye(self.dim_z) * R
+            
+        en_num = self.en_num
+        o_dim = len(o)
+        sigmas_h = np.zeros((en_num, o_dim))
+        
+        for i in range(en_num):
+            sigmas_h[i] = self.t2o(self.sigmas[i])
+            
+        o_mean = np.mean(sigmas_h, axis=0)
+        
+        C_zz = (outer_product_sum(sigmas_h - o_mean) / (en_num-1)) + R
+        C_xz = outer_product_sum(self.sigmas - self.x, sigmas_h - o_mean) / (en_num - 1)
+        
+        self.S = C_zz
+        self.SI = np.linalg.inv(self.S)
+        self.KG = np.dot(C_xz, self.SI)
+        
+        e_r = multivariate_normal(self.mean_o, R, en_num)
+        for i in range(en_num):
+            self.sigmas[i] += np.dot(self.KG, o + e_r[i] - sigmas_h[i])
+
+        self.x = np.mean(self.sigmas, axis=0)
+        self.C = self.C - np.dot(np.dot(self.KG, self.S), self.KG.T)
+
+        # save measurement and posterior state
+        self.o = deepcopy(o)
+        self.x_post = self.x.copy()
+        self.C_post = self.C.copy()
+        
+        return self.x, self.KG
         
