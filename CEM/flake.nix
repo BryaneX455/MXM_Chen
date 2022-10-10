@@ -11,7 +11,9 @@
     in
     {
       defaultPackage = forAllSystems (system: pkgs: mach-nix.lib."${system}".mkPython {
-        requirements = builtins.readFile ./requirements.txt;
+        requirements = ''
+          numpy ~= 1.23.3
+        '';
         python = "python310";
       });
     };
