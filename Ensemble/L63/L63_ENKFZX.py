@@ -117,7 +117,7 @@ fig.savefig('L63_TO_'+ err_name +'.eps', format='eps')
 # Implementing Ensemble Kalman Filter
 o_dim = 2
 dt = 0.01
-En_Num = 200 # Ensemble Number/ Sigma Points
+En_Num = 100 # Ensemble Number/ Sigma Points
 en_num_str = str(En_Num) + '_'
 
 # ENKF 
@@ -156,6 +156,6 @@ ax[2].legend(['w/o noises', 'filt'], loc = 'lower left')
 fig.tight_layout()
 
 plt.show()
-fig.savefig('L63_EN'+ en_num_str + err_name +'.eps', format='eps')
+fig.savefig('L63_EN'+ en_num_str + err_name + str(o_dim) + 'obs' + '.eps', format='eps')
 
 

@@ -71,11 +71,7 @@ class Ensemble_Kalman_Filter():
         
         # Calculate posterior
         
-        
-        # Save x prior state
-        self.x_prior = np.copy(self.x)
-        self.C_prior = np.copy(self.C)
-        
+
     def enks_filter(self, o, R = None):
         # Check if the observation is empty
         if o is None:
@@ -98,9 +94,11 @@ class Ensemble_Kalman_Filter():
             
         o_mean = np.mean(sigmas_h, axis=0)
         
+        # The first part is the covariance matrix of the data matrix covariance matrix 
         C_zz = (outer_product_sum(sigmas_h - o_mean) / (en_num-1)) + R
         C_xz = outer_product_sum(self.sigmas - self.x, sigmas_h - o_mean) / (en_num - 1)
-        
+
+
         self.S = C_zz
         self.SI = np.linalg.inv(self.S)
         self.KG = np.dot(C_xz, self.SI)
