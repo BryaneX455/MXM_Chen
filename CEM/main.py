@@ -7,38 +7,39 @@ def main():
     sigma: float = 10
     r: float = 28
     b: float = 8/3
-    dt: float = 0.0001
+    dt: float = 0.00005
 
     mu = 0
     sig = np.sqrt(2)
 
     L63_constants = np.array([
-                [1 - sigma * dt, sigma * dt, 0, 0, 0], 
-                [r * dt, 1 - dt, 0, -dt, 0], 
-                [0, 0, 1 - b * dt, 0, dt]
+                [1 - sigma * dt,    sigma * dt, 0,          0, 0,   0], 
+                [r * dt,            1 - dt,     0,          0, 0,   -dt], 
+                [0,                 0,          1 - b * dt, 0, dt,  0]
             ])
     
     L63_function_library = [
         lambda z, t: z[0],
         lambda z, t: z[1],
         lambda z, t: z[2],
+        lambda z, t: z[0] * z[0],
+        lambda z, t: z[0] * z[1],
         lambda z, t: z[0] * z[2],
-        lambda z, t: z[0] * z[1]
     ]
 
-    z_0 = np.array([
-        1.508870,
-        -1.531271,
-        25.46091
-    ])
-
     # z_0 = np.array([
-    #     1.508870 + np.random.normal(mu, sig),
-    #     -1.531271 + np.random.normal(mu, sig),
-    #     25.46091 + np.random.normal(mu, sig)
+    #     1.508870,
+    #     -1.531271,
+    #     25.46091
     # ])
 
-    count = 5000000
+    z_0 = np.array([
+        1.508870 + np.random.normal(mu, sig),
+        -1.531271 + np.random.normal(mu, sig),
+        25.46091 + np.random.normal(mu, sig)
+    ])
+
+    count = 100_000_000
     z = np.zeros((count + 1, len(z_0)))
     f = np.zeros((count, len(L63_function_library)))
 
@@ -57,6 +58,7 @@ def main():
     M = len(L63_function_library)
     N = len(z_0)
     CEM = np.zeros((M, N))
+    CEM_b = np.zeros((M, N), bool)
     # m = 0
     # n = 0
     for (m, n) in product(range(0, M), range(0, N)):
@@ -81,8 +83,11 @@ def main():
         #     continue
         # else:
         CEM[m,n] = 0.5 * np.log(R_XY) - 0.5 * np.log(R_Y) - 0.5 * np.log(R_XYZ) + 0.5 * np.log(R_YZ)
+        CEM_b[m,n] = CEM[m,n] > 0.0001
 
-    print(CEM)
+    print(CEM.transpose())
+    print(CEM_b.transpose())
+    print(L63_constants)
 
     # Z = [f0]
     # X = [z0]
