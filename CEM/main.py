@@ -7,7 +7,7 @@ def main():
     sigma: float = 10
     r: float = 28
     b: float = 8/3
-    dt: float = 0.01
+    dt: float = 0.0001
 
     mu = 0
     sig = np.sqrt(2)
@@ -38,7 +38,7 @@ def main():
     #     25.46091 + np.random.normal(mu, sig)
     # ])
 
-    count = 500
+    count = 5000000
     z = np.zeros((count + 1, len(z_0)))
     f = np.zeros((count, len(L63_function_library)))
 
@@ -49,11 +49,16 @@ def main():
             L63_constants,
             f[t]
         )
-    z = z[:-1]
+    z = z[1:]
     
+    print(f.shape)
+    print(z.shape)
+
     M = len(L63_function_library)
     N = len(z_0)
     CEM = np.zeros((M, N))
+    # m = 0
+    # n = 0
     for (m, n) in product(range(0, M), range(0, N)):
         Z = f[:, m:m+1]
         X = z[:, n:n+1]
@@ -61,18 +66,22 @@ def main():
         rng.remove(m)
         Y = f[:, rng]
 
-        R_Y = np.linalg.det(np.cov(f[:, 1:5]))
-        R_YZ = np.linalg.det(np.cov(np.concatenate((Y, Z), axis=1)))
-        R_XY = np.linalg.det(np.cov(np.concatenate((X, Y), axis=1)))
-        R_XYZ = np.linalg.det(np.cov(np.concatenate((X, Y, Z), axis=1)))
+        # print("Z:", Z)
+        # print("X:", X)
+        # print("Y:", Y)
+
+        R_Y = np.linalg.det(np.cov(Y.transpose()))
+        R_YZ = np.linalg.det(np.cov(np.concatenate((Y, Z), axis=1).transpose()))
+        R_XY = np.linalg.det(np.cov(np.concatenate((X, Y), axis=1).transpose()))
+        R_XYZ = np.linalg.det(np.cov(np.concatenate((X, Y, Z), axis=1).transpose()))
         a = [R_Y, R_YZ, R_XY, R_XYZ]
         print(m,n,a)
-        if any(map(lambda x: x <= 0, a)): 
-            CEM[m,n] = 0
-            continue
-        else:
-            CEM[m,n] = 0.5 * np.log(R_XY) - 0.5 * np.log(R_Y) - 0.5 * np.log(R_XYZ) + 0.5 * np.log(R_YZ)
-        
+        # if any(map(lambda x: x <= 0, a)): 
+        #     CEM[m,n] = 0
+        #     continue
+        # else:
+        CEM[m,n] = 0.5 * np.log(R_XY) - 0.5 * np.log(R_Y) - 0.5 * np.log(R_XYZ) + 0.5 * np.log(R_YZ)
+
     print(CEM)
 
     # Z = [f0]
