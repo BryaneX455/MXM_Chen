@@ -36,10 +36,17 @@ def calculate_CEM(z, f, cem_estimator):
     return rv
 
 def main():
+    count = 1_000
+
+    # L63 Parameters
     sigma: float = 10
     r: float = 28
     b: float = 8/3
     dt: float = 0.001
+
+    # Number of permutations in permutation test
+    permutations = 10000
+    significance_level = 0.99
 
     mu = 0
     sig = np.sqrt(2)
@@ -71,7 +78,6 @@ def main():
         25.46091 + np.random.normal(mu, sig)
     ])
 
-    count = 100_000
     z = np.zeros((count + 1, len(z_0)))
     f = np.zeros((count, len(L63_function_library)))
 
@@ -86,8 +92,24 @@ def main():
     
     CEM = calculate_CEM(z, f, gaussian_estimate)
 
+    CEM_permuted = []
+    for s in range(0, permutations):
+        # Permute f and z together
+        d = np.random.default_rng().permutation(np.concatenate((z, f), axis=1))
+        z_p = d[:len(z)]
+        f_p = d[len(z):]
+        CEM_permuted.append(calculate_CEM(z, f, gaussian_estimate))
+    
+    CEM_b = np.zeros(CEM.shape)
+    for (m,n) in product(range(0, CEM.shape[0]), range(0, CEM.shape[1])):
+        # See: Sun et. al. 2014 p. 3423
+        a: float = len(list(filter(lambda x: x <= CEM[m][n], map(lambda x: x[m][n], CEM_permuted))))
+        F_C = a / float(permutations)
+        print(m,n, F_C)
+        CEM_b[m][n] = F_C > significance_level
+
     print("CEM: ", CEM.transpose())
-    # print("Chosen Parameters: ", CEM_b.transpose())
+    print("Chosen Parameters: ", CEM_b.transpose())
     print("Original Constants: ", L63_constants)
 
 if __name__ == "__main__":
