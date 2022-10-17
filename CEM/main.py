@@ -3,6 +3,38 @@
 import numpy as np
 from itertools import product
 
+# Gaussian estimate of the causation entropy from Z to X conditioned on Y.
+def gaussian_estimate(Z, X, Y):
+    R_Y = np.linalg.det(np.cov(Y.transpose()))
+    R_YZ = np.linalg.det(np.cov(np.concatenate((Y, Z), axis=1).transpose()))
+    R_XY = np.linalg.det(np.cov(np.concatenate((X, Y), axis=1).transpose()))
+    R_XYZ = np.linalg.det(np.cov(np.concatenate((X, Y, Z), axis=1).transpose()))
+
+    # Adjust for numerical issues. A negative determinant from a 
+    # covariance matrix can only be a result of a floating point rounding error.
+    # So just set the covariance to a very small positive epsilon.
+    if R_Y <= 0: R_Y = np.finfo(float).eps
+    if R_YZ <= 0: R_YZ = np.finfo(float).eps
+    if R_XY <= 0: R_XY = np.finfo(float).eps
+    if R_XYZ <= 0: R_XYZ = np.finfo(float).eps
+
+    return 0.5 * np.log(R_XY) - 0.5 * np.log(R_Y) - 0.5 * np.log(R_XYZ) + 0.5 * np.log(R_YZ)
+
+def calculate_CEM(z, f, cem_estimator):
+    M = len(f[0])
+    N = len(z[0])
+    rv = np.zeros((M, N))
+    for (m, n) in product(range(0, M), range(0, N)):
+        Z = f[:, m:m+1]
+        X = z[:, n:n+1]
+        rng = list(range(0, len(f[0])))
+        rng.remove(m)
+        Y = f[:, rng]
+
+        rv[m,n] = cem_estimator(Z, X, Y)
+
+    return rv
+
 def main():
     sigma: float = 10
     r: float = 28
@@ -39,7 +71,7 @@ def main():
         25.46091 + np.random.normal(mu, sig)
     ])
 
-    count = 10_000_000
+    count = 100_000
     z = np.zeros((count + 1, len(z_0)))
     f = np.zeros((count, len(L63_function_library)))
 
@@ -52,36 +84,10 @@ def main():
         )
     z = z[1:]
     
-    M = len(L63_function_library)
-    N = len(z_0)
-    CEM = np.zeros((M, N))
-    CEM_b = np.zeros((M, N), bool)
-
-    for (m, n) in product(range(0, M), range(0, N)):
-        Z = f[:, m:m+1]
-        X = z[:, n:n+1]
-        rng = list(range(0, len(L63_function_library)))
-        rng.remove(m)
-        Y = f[:, rng]
-
-        R_Y = np.linalg.det(np.cov(Y.transpose()))
-        R_YZ = np.linalg.det(np.cov(np.concatenate((Y, Z), axis=1).transpose()))
-        R_XY = np.linalg.det(np.cov(np.concatenate((X, Y), axis=1).transpose()))
-        R_XYZ = np.linalg.det(np.cov(np.concatenate((X, Y, Z), axis=1).transpose()))
-
-        # Adjust for numerical issues. A negative determinant from a 
-        # covariance matrix can only be a result of a floating point rounding error.
-        # So just set the covariance to a very small positive epsilon.
-        if R_Y <= 0: R_Y = np.finfo(float).eps
-        if R_YZ <= 0: R_YZ = np.finfo(float).eps
-        if R_XY <= 0: R_XY = np.finfo(float).eps
-        if R_XYZ <= 0: R_XYZ = np.finfo(float).eps
-
-        CEM[m,n] = 0.5 * np.log(R_XY) - 0.5 * np.log(R_Y) - 0.5 * np.log(R_XYZ) + 0.5 * np.log(R_YZ)
-        CEM_b[m,n] = CEM[m,n] > 0.005
+    CEM = calculate_CEM(z, f, gaussian_estimate)
 
     print("CEM: ", CEM.transpose())
-    print("Chosen Parameters: ", CEM_b.transpose())
+    # print("Chosen Parameters: ", CEM_b.transpose())
     print("Original Constants: ", L63_constants)
 
 if __name__ == "__main__":
