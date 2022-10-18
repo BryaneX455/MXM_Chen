@@ -35,8 +35,20 @@ def calculate_CEM(z, f, cem_estimator):
 
     return rv
 
+# Permute a np array where the first coordinate is the time, and the second 
+# coordinate is the vector index.
+def permute_time_series(x):
+    return np.array(
+        list(
+            map(lambda i: np.random.default_rng().permutation(x.transpose()[i]), 
+                range(0, len(x[0]))
+            )
+        )
+    ).transpose()
+
+
 def main():
-    count = 1_000
+    count = 1_000_000
 
     # L63 Parameters
     sigma: float = 10
@@ -45,7 +57,7 @@ def main():
     dt: float = 0.001
 
     # Number of permutations in permutation test
-    permutations = 10000
+    permutations = 100
     significance_level = 0.99
 
     mu = 0
@@ -94,18 +106,19 @@ def main():
 
     CEM_permuted = []
     for s in range(0, permutations):
-        # Permute f and z together
-        d = np.random.default_rng().permutation(np.concatenate((z, f), axis=1))
-        z_p = d[:len(z)]
-        f_p = d[len(z):]
-        CEM_permuted.append(calculate_CEM(z, f, gaussian_estimate))
+        # Permute f and z together:
+        # d = np.random.default_rng().permutation(np.concatenate((z, f), axis=1))
+        # z_p = d[:len(z)]
+        # f_p = d[len(z):]
+        print("Computing permutation ", s+1, "/", permutations)
+        CEM_permuted.append(calculate_CEM(permute_time_series(z), permute_time_series(f), gaussian_estimate))
     
     CEM_b = np.zeros(CEM.shape)
     for (m,n) in product(range(0, CEM.shape[0]), range(0, CEM.shape[1])):
         # See: Sun et. al. 2014 p. 3423
         a: float = len(list(filter(lambda x: x <= CEM[m][n], map(lambda x: x[m][n], CEM_permuted))))
         F_C = a / float(permutations)
-        print(m,n, F_C)
+        # print(m,n, F_C)
         CEM_b[m][n] = F_C > significance_level
 
     print("CEM: ", CEM.transpose())
