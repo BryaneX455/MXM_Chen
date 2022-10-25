@@ -2,6 +2,7 @@
 
 import numpy as np
 from itertools import product
+from multiprocessing import Pool
 
 # Gaussian estimate of the causation entropy from Z to X conditioned on Y.
 def gaussian_estimate(Z, X, Y):
@@ -46,9 +47,11 @@ def permute_time_series(x):
         )
     ).transpose()
 
+def compute_permuted_CEM(args):
+    return calculate_CEM(permute_time_series(args[0]), permute_time_series(args[1]), args[2])
 
 def main():
-    count = 1_000_000
+    count = 10_000_000
 
     # L63 Parameters
     sigma: float = 10
@@ -57,8 +60,8 @@ def main():
     dt: float = 0.001
 
     # Number of permutations in permutation test
-    permutations = 100
-    significance_level = 0.99
+    permutations = 10
+    significance_level = 0.999
 
     mu = 0
     sig = np.sqrt(2)
@@ -105,13 +108,15 @@ def main():
     CEM = calculate_CEM(z, f, gaussian_estimate)
 
     CEM_permuted = []
-    for s in range(0, permutations):
-        # Permute f and z together:
-        # d = np.random.default_rng().permutation(np.concatenate((z, f), axis=1))
-        # z_p = d[:len(z)]
-        # f_p = d[len(z):]
-        print("Computing permutation ", s+1, "/", permutations)
-        CEM_permuted.append(calculate_CEM(permute_time_series(z), permute_time_series(f), gaussian_estimate))
+    with Pool(8) as p:
+        CEM_permuted = p.map(compute_permuted_CEM, map(lambda x: (z,f,gaussian_estimate), range(0, permutations)))
+        # for s in :
+        #     # Permute f and z together:
+        #     # d = np.random.default_rng().permutation(np.concatenate((z, f), axis=1))
+        #     # z_p = d[:len(z)]
+        #     # f_p = d[len(z):]
+        #     print("Computing permutation ", s+1, "/", permutations)
+        #     CEM_permuted.append(calculate_CEM(permute_time_series(z), permute_time_series(f), gaussian_estimate))
     
     CEM_b = np.zeros(CEM.shape)
     for (m,n) in product(range(0, CEM.shape[0]), range(0, CEM.shape[1])):
@@ -127,86 +132,3 @@ def main():
 
 if __name__ == "__main__":
     main()
-
-# # Elinger 2020 Eq. 2.6
-# def h(d: int, N: int):
-#     return ((4 / (d+2)) ** (1 / (d+4))) * N ** (-1 / (d+4))
-
-# # Elinger 2020 Eq. 2.5
-# def K(h: float, d: int, detS: float, x):
-#     return (1 / (
-#         (2 * np.pi)^(float(d)/2)
-#         * (h ** d)
-#         * (detS ** 0.5)
-#     )) * np.exp(- (x / 2))
-
-
-# # Chen & Zhang 2022 Eq. 6 
-# def discretized_lorenz63_model(sigma: float, r: float, b: float, dt: float):
-#     return lambda z: np.matmul(
-#             # Xi
-#             np.array([
-#                 [1 - sigma * dt, sigma * dt, 0, 0, 0], 
-#                 [r * dt, 1 - dt, 0, -dt, 0], 
-#                 [0, 0, 1 - b * dt, 0, dt]
-#             ]),
-#             # F(z(t), t)
-#             np.array([
-#                 z[0],
-#                 z[1],
-#                 z[2],
-#                 z[0] * z[2],
-#                 z[0] * z[1]
-#             ])
-#         )
-
-
-# def library_functions(N: int):
-#     """N from Chen & Zhang Eq. 6, the number of state variables in the vector Z.
-#     Outputs a list of lambdas which take a state vector z and time step t, and produce f_n(z, t).
-#     """
-#     rv = []
-    
-#     # Linear functions
-#     for i in range(0, N):
-#         def f(z, t, i=i): return z[i]
-#         rv.append(f)
-    
-#     # Quadratic functions
-#     for (i,j) in product(range(0, N), repeat=2):
-#         def f(z, t, i=i, j=j): return z[i] * z[j]
-#         rv.append(f)
-    
-#     return rv
-
-# def compute_library(lib: list):
-#     """Converts a list of library function lambdas from i.e. library_functions into a single function of z and t"""
-#     def f(z,t, lib=lib): return np.array(list(map(lambda f: f(z,t), lib)))
-#     return f
-
-# def random_xi(N, M):
-#     """"""
-#     return 0.01 * np.random.rand(N,M)
-
-# def model_timestep(Xi, F, z_t, t: float):
-#     # print("Xi: ", Xi, "F: ", F(z_t, t))
-#     return np.matmul(Xi, F(z_t, t))
-
-# def simulate_model(Xi, lib, z_0, count: int, dt: float = 0.01):
-#     F = compute_library(lib)
-#     z = np.zeros((count, len(z_0)))
-#     z[0] = z_0
-#     for i in range(1, count):
-#         z[i] = model_timestep(Xi, F, z[i-1], i*dt)
-#         print(z[i])
-#     return z
-
-# # Chen and Zhang 2022 Prop. 4
-# # C_{Z \to X | Y}
-# def gaussian_estimate(z, x, y):
-#     R_XY = np.log(np.linalg.det(np.cov(x, y)))
-#     # R_Y = np.log(np.linalg.det(np.cov(y, y)))
-#     R_XYZ = np.log(np.linalg.det(np.cov(np.array([x,y,z]))))
-#     R_YZ = np.log(np.linalg.det(np.cov(y, z)))
-
-#     return 0.5 * R_XY - 0.5 * R_XYZ + 0.5 * R_YZ  # - 0.5 * R_Y
