@@ -11,9 +11,6 @@
         numpy ~= 1.23.3
       '';
       python = "python310";
-      name = "cem";
-      tag = "main";
-
       supportedSystems = [ "aarch64-linux" "x86_64-linux" "aarch64-darwin" ];
       forAllSystems = f: nixpkgs.lib.genAttrs supportedSystems
         (system: f system (import nixpkgs {inherit system;}));
@@ -24,34 +21,18 @@
           inherit requirements;
           inherit python;
         };
-      });
-
-      apps = forAllSystems (system: pkgs: {
-        default = {
-          type = "app";
-          program = "${self.packages.${system}.default.out}/bin/python";
-        };
-      });
-
-      docker = let
-        # architectures = [ "i686" "x86_64" "aarch64" "powerpc64le" ];
-        # crossSystems = map (arch: {
-        #   inherit arch;
-        #   pkgs = (import nixpkgs {
-        #     crossSystem = { config = "${arch}-unknown-linux-musl"; };
-        #   }).pkgsStatic;
-        # }) architectures;
-        # buildImage = arch: 
-        image = mach-nix.lib."aarch64-linux".mkDockerImage {
+        docker =
+        let image = mach-nix.lib."${system}".mkDockerImage {
           inherit requirements;
           inherit python;
         };
-      in image.override (oa:{
-        inherit name;
-        inherit tag;
-        contents = [ self ];
-        config.Cmd = oa.config.Cmd ++ ["main.py"];
+        in
+        image.override (oa:{
+          name = "cem";
+          tag = "main";
+          contents = [ self ];
+          config.Cmd = oa.config.Cmd ++ ["main.py"];
+        });
       });
-
     };
 }
