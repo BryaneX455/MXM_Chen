@@ -3,6 +3,7 @@
 import numpy as np
 from itertools import product
 from multiprocessing import Pool
+import tqdm
 
 # Gaussian estimate of the causation entropy from Z to X conditioned on Y.
 def gaussian_estimate(Z, X, Y):
@@ -51,7 +52,7 @@ def compute_permuted_CEM(args):
     return calculate_CEM(permute_time_series(args[0]), permute_time_series(args[1]), args[2])
 
 def main():
-    count = 10_000_000
+    count = 1_000_000
 
     # L63 Parameters
     sigma: float = 10
@@ -60,11 +61,11 @@ def main():
     dt: float = 0.001
 
     # Number of permutations in permutation test
-    permutations = 10
-    significance_level = 0.999
+    permutations = 50
+    significance_level = 0.99
 
     mu = 0
-    sig = np.sqrt(2)
+    sig = 1 * np.sqrt(2)
 
     L63_constants = np.array([
                 [1 - sigma * dt,    sigma * dt, 0,          0, 0,   0], 
@@ -96,6 +97,7 @@ def main():
     z = np.zeros((count + 1, len(z_0)))
     f = np.zeros((count, len(L63_function_library)))
 
+    # Simulate L63 system
     z[0] = z_0
     for t in range(0, count):
         f[t] = np.array(list(map(lambda x: x(z[t], t), L63_function_library)))
@@ -103,13 +105,18 @@ def main():
             L63_constants,
             f[t]
         )
+        z[t+1] += np.random.normal(scale=sig, size=3)
     z = z[1:]
     
     CEM = calculate_CEM(z, f, gaussian_estimate)
 
     CEM_permuted = []
     with Pool(8) as p:
-        CEM_permuted = p.map(compute_permuted_CEM, map(lambda x: (z,f,gaussian_estimate), range(0, permutations)))
+        CEM_permuted = list(
+            tqdm.tqdm(
+                p.imap(compute_permuted_CEM, map(lambda x: (z,f,gaussian_estimate), range(0, permutations)))
+            )
+        )
         # for s in :
         #     # Permute f and z together:
         #     # d = np.random.default_rng().permutation(np.concatenate((z, f), axis=1))
@@ -126,9 +133,9 @@ def main():
         # print(m,n, F_C)
         CEM_b[m][n] = F_C > significance_level
 
-    print("CEM: ", CEM.transpose())
-    print("Chosen Parameters: ", CEM_b.transpose())
-    print("Original Constants: ", L63_constants)
+    print("CEM:\n", CEM.transpose())
+    print("Chosen Parameters:\n", CEM_b.transpose())
+    print("Original Constants:\n", L63_constants)
 
 if __name__ == "__main__":
     main()

@@ -9,6 +9,7 @@
     let
       requirements = ''
         numpy ~= 1.23.3
+        tqdm ~= 4.64.1
       '';
       python = "python310";
       name = "cem";
