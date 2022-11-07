@@ -7,10 +7,7 @@
 
   outputs = {self, nixpkgs, mach-nix }@inp:
     let
-      requirements = ''
-        numpy ~= 1.23.3
-        tqdm ~= 4.64.1
-      '';
+      requirements = builtins.readFile ./requirements.txt;
       python = "python310";
       name = "cem";
       tag = "main";

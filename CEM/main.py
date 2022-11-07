@@ -51,8 +51,11 @@ def permute_time_series(x):
 def compute_permuted_CEM(args):
     return calculate_CEM(permute_time_series(args[0]), permute_time_series(args[1]), args[2])
 
+def count_nonzero_entries(cem):
+    return len(list(filter(lambda x: x != 0, np.nditer(cem))))
+
 def main():
-    count = 1_000_000
+    count = 100_000
 
     # L63 Parameters
     sigma: float = 10
@@ -65,7 +68,7 @@ def main():
     significance_level = 0.99
 
     mu = 0
-    sig = 1 * np.sqrt(2)
+    sig = 0.05 * np.sqrt(2)
 
     L63_constants = np.array([
                 [1 - sigma * dt,    sigma * dt, 0,          0, 0,   0], 
@@ -80,6 +83,16 @@ def main():
         lambda z, t: z[0] * z[0],
         lambda z, t: z[0] * z[1],
         lambda z, t: z[0] * z[2],
+    ]
+
+    # Used to identify thetas involved in physics constraints
+    function_library_is_quadratic_term = [
+        False,
+        False,
+        False,
+        True,
+        True,
+        True,
     ]
 
     # z_0 = np.array([
@@ -117,13 +130,6 @@ def main():
                 p.imap(compute_permuted_CEM, map(lambda x: (z,f,gaussian_estimate), range(0, permutations)))
             )
         )
-        # for s in :
-        #     # Permute f and z together:
-        #     # d = np.random.default_rng().permutation(np.concatenate((z, f), axis=1))
-        #     # z_p = d[:len(z)]
-        #     # f_p = d[len(z):]
-        #     print("Computing permutation ", s+1, "/", permutations)
-        #     CEM_permuted.append(calculate_CEM(permute_time_series(z), permute_time_series(f), gaussian_estimate))
 
     CEM_b = np.zeros(CEM.shape)
     for (m,n) in product(range(0, CEM.shape[0]), range(0, CEM.shape[1])):
@@ -136,6 +142,22 @@ def main():
     print("CEM:\n", CEM.transpose())
     print("Chosen Parameters:\n", CEM_b.transpose())
     print("Original Constants:\n", L63_constants)
+    print("Number of Thetas: ", count_nonzero_entries(CEM_b.transpose()))
+
+    # Identify Physics Constraints
+    it = np.nditer(CEM_b.transpose(), order='C', flags=['multi_index'])
+    Theta = list(map(lambda x: x[1], filter(lambda x: x[0] != 0, map(lambda x: (x, it.multi_index), it))))
+    print(Theta)
+    H = list(map(lambda x: 1 if function_library_is_quadratic_term[x[1]] else 0, Theta))
+    print(H)
+
+    M = np.zeros((len(Theta), len(z[0])))
+    for i, t in enumerate(Theta):
+        print(i, t)
+        M[i][t[0]] = f[0][t[1]]
+    print(M.transpose())
+
+    # print(list(filter(lambda x: x != 0 and function_library_is_quadratic_term[it.multi_index[1]], it)))
 
 if __name__ == "__main__":
     main()
