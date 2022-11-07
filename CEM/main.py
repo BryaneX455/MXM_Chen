@@ -71,7 +71,7 @@ def main():
                 [r * dt,            1 - dt,     0,          0, 0,   -dt], 
                 [0,                 0,          1 - b * dt, 0, dt,  0]
             ])
-    
+
     L63_function_library = [
         lambda z, t: z[0],
         lambda z, t: z[1],
@@ -117,7 +117,7 @@ def main():
         #     # f_p = d[len(z):]
         #     print("Computing permutation ", s+1, "/", permutations)
         #     CEM_permuted.append(calculate_CEM(permute_time_series(z), permute_time_series(f), gaussian_estimate))
-    
+
     CEM_b = np.zeros(CEM.shape)
     for (m,n) in product(range(0, CEM.shape[0]), range(0, CEM.shape[1])):
         # See: Sun et. al. 2014 p. 3423
