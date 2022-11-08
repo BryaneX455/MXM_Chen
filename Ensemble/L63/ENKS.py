@@ -8,7 +8,7 @@ Created on Thu Oct 20 00:16:21 2022
 import numpy as np
 import matplotlib.pyplot as plt
 from numpy.random import multivariate_normal as MN
-from numpy.linalg import inv
+from numpy.linalg import inv, svd, eig
 """
 ---------------------------------------------------------------------------------------------------------------------
 Overview:
@@ -43,50 +43,96 @@ Parameters:
     
 """
 class ENKS():
-    def __init__(self, x_init, x_dim, o_dim, ens_num, P_p, P_o, H, t2o, pred, dt):
+    def __init__(self, x_init, x_dim, o_dim, ens_num, P_p, H, pred, dt):
         self.x = x_init
         self.x_dim = x_dim
         self.o_dim = o_dim
         self.ens_num = ens_num
         self.P_p = P_p
-        self.P_o = P_o
         self.H = H
-        self.t2o = t2o
         self.pred = pred
         self.dt = dt
-        self.x_ens = MN(self.x, cov = self.P_p, size = self.ens_num)
-        self.o_ens = np.zeros((ens_num,o_dim))
         self.mean = np.zeros(self.x_dim)
         self.mean_o = np.zeros(self.o_dim)
-    def cov(self,A,B):
-        C = 0
-        for i in range(len(A)):
-            ctemp = np.outer(A[i], B[i])
-            C += ctemp
-            
-        return C
+        self.one = np.ones((ens_num,ens_num))/ens_num
+        self.A = MN(self.x, cov = self.P_p, size = self.ens_num).T
         
+    def sample_ens(self, mean, cov, size):
+        return MN(mean = mean, cov = cov, size = size).T
+    def predic(self):
+        self.x = self.pred(self.x, self.dt)
+        return self.x
     def ENKF(self, o):
-        # predict state ensemble and find its prediction covariance matrix
-        for i,ee in enumerate(self.x_ens):
-            self.x_ens[i] = self.pred(ee,self.dt)
-        self.x = np.mean(self.x_ens, axis = 0)
-        self.P_p = self.cov(self.x_ens-self.x, self.x_ens-self.x)/(self.ens_num-1)        
+        """ 
+
+        Parameters
+        ----------
+        o : TYPE
+            DESCRIPTION.
+
+        Returns
+        -------
+        None.
+
+        """
+        # setup
         
-        # data ensemble construction
-        for i in range(self.ens_num):
-            self.o_ens[i] = self.t2o(self.x_ens[i])   
-        o_mean = np.mean(self.o_ens, axis = 0)
-        P_oe = np.eye(self.o_dim)*10
         
-        # perform the analysis/filtering step, construct the analyzed state covariance matrix
-        K = self.P_p@self.H.T@(inv(self.H@self.P_p@self.H.T + P_oe))
-        for i,ee in enumerate(self.x_ens):
-            self.x_ens[i] = ee + K@(self.o_ens[i] - self.H@ee)
-            # if observation dimension is larger than the ensemble number, the first part in the bracket will be singular.
+        # self.x = self.pred(self.x, self.dt)
+        self.A = self.sample_ens(self.x, self.P_p, self.ens_num)
         
-        self.P_p = self.P_p - K@self.H@self.P_p
         
-        # take the mean of the posterior enssemble as posterior state
-        self.x = np.mean(self.x_ens, axis = 0)
-        return self.x, self.P_p,self.x_ens
+
+        #for i,s in enumerate(self.A.T):
+         #   self.A.T[i] = self.pred(s,self.dt)
+        Abar = self.A@self.one
+        Aprime = self.A-Abar
+        self.P_p = Aprime@Aprime.T/(self.ens_num - 1)
+        
+        D = self.sample_ens(o,np.eye(self.o_dim),self.ens_num)
+        gam = D - D@self.one
+        Dprime = D - self.H@self.A
+        R_e = gam@gam.T/(self.ens_num-1)
+        
+        # analysis
+        the_inv = inv(self.H@self.P_p@self.H.T + R_e)
+        #U, Sig, VT = svd(self.H@Aprime + gam, full_matrices = True)
+        #diag = []
+        #Sig = np.power(Sig, 2)
+        #Sigsum = 0
+        #Sigsum1 = 0
+        #for i in Sig:
+        #    Sigsum = Sigsum + i
+        #for i in Sig:
+        #    if (Sigsum1 / Sigsum) < 0.999:
+        #        Sigsum1 = Sigsum1 + i
+        #        diag.append(1/i)
+        #    else:
+        #        diag.append(0)
+
+        #X1 = np.diag(diag)@U.T
+        #X2 = X1@Dprime
+        #X3 = U@X2
+        #X4 = (self.H@Aprime).T@X3
+        #X5 = np.eye(self.ens_num) + X4
+        X5 = Aprime.T/(self.ens_num-1)@self.H.T@the_inv@(D-self.H@self.A)
+        # self.A = self.A + Aprime@X4
+        self.A = self.A + self.P_p@self.H.T@the_inv@(D-self.H@self.A)
+        # posterior state x
+        self.x = np.mean(self.A, axis = 1)
+        
+        return self.x, self.A, X5
+    
+    def ENKS(self, AL, X5L, N):
+        AsL = []
+        xL = []
+        for i in range(N):
+            Pi = np.eye(self.ens_num)
+            for j in range(i+1,N+1):
+                Pi = Pi@X5L[j]
+            As = AL[i]@Pi
+            x = np.mean(As, axis = 1)
+            AsL.append(As)
+            xL.append(x)
+        return xL,AsL
+        
