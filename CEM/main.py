@@ -4,6 +4,7 @@ import numpy as np
 from itertools import product
 from multiprocessing import Pool
 import tqdm
+from functools import reduce
 
 # Gaussian estimate of the causation entropy from Z to X conditioned on Y.
 def gaussian_estimate(Z, X, Y):
@@ -64,7 +65,7 @@ def main():
     dt: float = 0.001
 
     # Number of permutations in permutation test
-    permutations = 50
+    permutations = 1
     significance_level = 0.99
 
     mu = 0
@@ -151,11 +152,22 @@ def main():
     H = list(map(lambda x: 1 if function_library_is_quadratic_term[x[1]] else 0, Theta))
     print(H)
 
-    M = np.zeros((len(Theta), len(z[0])))
-    for i, t in enumerate(Theta):
-        print(i, t)
-        M[i][t[0]] = f[0][t[1]]
-    print(M.transpose())
+    # Chen and Zhang (2022) Eqns. 15 and 16
+    M = np.zeros((len(z), len(Theta), len(z[0])))
+    for j in range(0, len(z)):
+        for i, t in enumerate(Theta):
+            M[j][i][t[0]] = f[j][t[1]]
+    print(M[0].transpose())
+
+    Sigma = reduce(lambda a, b: a+b, map(lambda j: np.matmul((z[j+1] - z[j]).transpose(), (z[j+1] - z[j])), range(0, len(z) - 1))) / len(z)
+    print(Sigma)
+    print(sig)
+    print(abs(Sigma - sig))
+
+    D = reduce(lambda a,b: a+b, map(lambda j: (1/Sigma) * np.matmul(M[j].transpose(), M[j]), range(0, len(z))))
+    
+    # Q: This is not the right size?  Can't multiply M and z
+    c = reduce(lambda a,b: a+b, map(lambda j: (1/Sigma) * np.matmul(M[j].transpose(), (z[j+1] - z[j])), range(0, len(z) - 1)))
 
     # print(list(filter(lambda x: x != 0 and function_library_is_quadratic_term[it.multi_index[1]], it)))
 
