@@ -65,7 +65,7 @@ def main():
     dt: float = 0.001
 
     # Number of permutations in permutation test
-    permutations = 1
+    permutations = 8
     significance_level = 0.99
 
     mu = 0
@@ -149,7 +149,7 @@ def main():
     it = np.nditer(CEM_b.transpose(), order='C', flags=['multi_index'])
     Theta = list(map(lambda x: x[1], filter(lambda x: x[0] != 0, map(lambda x: (x, it.multi_index), it))))
     print(Theta)
-    H = list(map(lambda x: 1 if function_library_is_quadratic_term[x[1]] else 0, Theta))
+    H = np.array(list(map(lambda x: 1 if function_library_is_quadratic_term[x[1]] else 0, Theta)))
     print(H)
 
     # Chen and Zhang (2022) Eqns. 15 and 16
@@ -164,10 +164,23 @@ def main():
     print(sig)
     print(abs(Sigma - sig))
 
-    D = reduce(lambda a,b: a+b, map(lambda j: (1/Sigma) * np.matmul(M[j].transpose(), M[j]), range(0, len(z))))
+    D = reduce(lambda a,b: a+b, map(lambda j: (1/Sigma) * np.matmul(M[j], M[j].transpose()), range(0, len(z))))
+    c = reduce(lambda a,b: a+b, map(lambda j: (1/Sigma) * np.matmul(M[j], (z[j+1] - z[j])), range(0, len(z) - 1)))
     
-    # Q: This is not the right size?  Can't multiply M and z
-    c = reduce(lambda a,b: a+b, map(lambda j: (1/Sigma) * np.matmul(M[j].transpose(), (z[j+1] - z[j])), range(0, len(z) - 1)))
+    # Initial bit works:
+    print(np.matmul(np.linalg.inv(D), c))
+    
+    # Physics Constraings:
+    print(np.matmul(H, np.linalg.inv(D)))
+    print(H.transpose())
+
+    lmbda = np.matmul(
+        np.linalg.inv(
+            np.matmul(np.matmul(H.transpose(), np.linalg.inv(D)), H)),
+        np.matmul(np.matmul(H, np.linalg.inv(D)), c)
+    )
+
+    print(lmbda)
 
     # print(list(filter(lambda x: x != 0 and function_library_is_quadratic_term[it.multi_index[1]], it)))
 
