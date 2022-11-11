@@ -5,6 +5,7 @@ from itertools import product
 from multiprocessing import Pool
 import tqdm
 from functools import reduce
+from CausalityBasedSystemLearner import CausalityBasedSystemLearner
 
 # Gaussian estimate of the causation entropy from Z to X conditioned on Y.
 def gaussian_estimate(Z, X, Y):
@@ -65,7 +66,7 @@ def main():
     dt: float = 0.001
 
     # Number of permutations in permutation test
-    permutations = 8
+    permutations = 100
     significance_level = 0.99
 
     mu = 0
@@ -120,8 +121,19 @@ def main():
             f[t]
         )
         z[t+1] += np.random.normal(scale=sig, size=3)
-    z = z[1:]
+    # z = z[1:]
     
+    l = CausalityBasedSystemLearner(
+        z,
+        L63_function_library,
+        function_library_is_quadratic_term,
+    )
+    l.compute_function_values()
+    l.compute_causation_entropy_matrix()
+    l.identify_nonzero_causation_entropy_entries(100)
+
+    exit(0)
+
     CEM = calculate_CEM(z, f, gaussian_estimate)
 
     CEM_permuted = []
@@ -174,13 +186,16 @@ def main():
     print(np.matmul(H, np.linalg.inv(D)))
     print(H.transpose())
 
-    lmbda = np.matmul(
-        np.linalg.inv(
-            np.matmul(np.matmul(H.transpose(), np.linalg.inv(D)), H)),
-        np.matmul(np.matmul(H, np.linalg.inv(D)), c)
-    )
-
-    print(lmbda)
+    lmbda = np.matmul(np.matmul(H.transpose(), np.linalg.inv(D)), H) / np.matmul(np.matmul(H, np.linalg.inv(D)), c)
+    
+    result = np.zeros(CEM.transpose().shape)
+    for theta, loc in zip(np.matmul(
+        np.linalg.inv(D),
+        (c - lmbda * H.transpose())
+    ), Theta):
+        result[loc] = theta
+    
+    print(result)
 
     # print(list(filter(lambda x: x != 0 and function_library_is_quadratic_term[it.multi_index[1]], it)))
 
