@@ -70,8 +70,8 @@ def compute_causation_entropy_matrix(
 
         # F_m to Z_n | F\{F_m}
         rv[n,m] = causation_entropy_estimator(
-            f[:, m:m+1], 
-            z[:, n:n+1], 
+            f[:, m:m+1],
+            z[:, n:n+1],
             f[:, indices]
         )
 
@@ -79,13 +79,13 @@ def compute_causation_entropy_matrix(
 
 """Permute a time series along the time axis (first coordinate)"""
 def permute_time_series(x, rng=np.random.default_rng()):
-    return np.array(
-        list(
-            map(lambda i: rng.permutation(x[:, [i]]), 
+    return np.concatenate(
+            list(map(lambda i: rng.permutation(x[:, [i]]), 
                 range(0, len(x[0]))
-            )
+            )),
+            axis=1
         )
-    )
+        
 
 """Takes (Z, F, causation_entropy_estimator, rng)"""
 def __permuted_CEM_helper(args):
