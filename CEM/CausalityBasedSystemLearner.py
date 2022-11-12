@@ -20,9 +20,12 @@ def construct_function_library(
         for multi_index in product(range(0,N), repeat=k):
             def f(z,t, multi_index=multi_index):
                 return reduce(lambda a,b: a*b, map(lambda j: z[j], multi_index))
-            rv.append(f)
+            rv.append((f, k == 2))
 
-    return rv
+    return (
+        list(map(lambda x: x[0], rv)), 
+        list(map(lambda x: x[1], rv))
+    )
 
 def generate_function_library_timeseries(
     z,
@@ -166,8 +169,56 @@ def extract_parameters(
         filter(lambda x: x[0] != 0,
         map(lambda x: (x, it.multi_index), iter)))
 
-def asdf():
-    H = np.array(list(map(lambda x: 1 if self.function_library_quadratics[x[1]] else 0, Theta)))
+"""M from Chen & Zhang 2022 Eq. 12,14"""
+def construct_parameter_estimation_matrices(
+    z,
+    f,
+    parameter_indices,
+):
+    M = np.zeros((len(z), len(parameter_indices), len(z[0])))
+    for j in range(0, len(z)):
+        for i, t in enumerate(parameter_indices):
+            M[j][i][t[0]] = f[j][t[1]]
+    return M
+
+def estimate_sigma(
+    z,
+):
+    return reduce(
+            lambda a, b: a+b,
+            map(
+                lambda j: np.matmul((z[j+1] - z[j]).transpose(), (z[j+1] - z[j])), 
+                range(0, len(z) - 1)
+            )
+        ) / len(z)
+
+def estimat_parameters(
+    z,
+    f,
+    parameter_indices,
+    Sigma,
+):
+    M = construct_parameter_estimation_matrices(z,f,parameter_indices)
+    D = (1/Sigma) * reduce(
+        lambda a,b: a+b, 
+        map(
+            lambda j: np.matmul(M[j], M[j].transpose()), 
+            range(0, len(self.Z))
+        )
+    )
+    c = (1/Sigma) * reduce(
+        lambda a,b: a+b, 
+        map(
+            lambda j: np.matmul(M[j], (self.Z[j+1] - self.Z[j])), 
+            range(0, len(self.Z) - 1)
+        )
+    )
+
+    return np.matmul(np.linalg.inv(D), c)
+
+
+# def compute_physics_():
+#     H = np.array(list(map(lambda x: 1 if self.function_library_quadratics[x[1]] else 0, Theta)))
 
 
 class CausalityBasedSystemLearner:
