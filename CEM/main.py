@@ -35,6 +35,11 @@ def calculate_CEM(z, f, cem_estimator):
         rng.remove(m)
         Y = f[:, rng]
 
+        if n == 0 and m == 0:
+            print(Z)
+            print(X)
+            print(Y)
+
         rv[m,n] = cem_estimator(Z, X, Y)
 
     return rv
@@ -66,7 +71,7 @@ def main():
     dt: float = 0.001
 
     # Number of permutations in permutation test
-    permutations = 100
+    permutations = 200
     significance_level = 0.99
 
     mu = 0
@@ -128,13 +133,15 @@ def main():
         L63_function_library,
         function_library_is_quadratic_term,
     )
-    l.compute_function_values()
-    l.compute_causation_entropy_matrix()
-    l.identify_nonzero_causation_entropy_entries(100)
+    # print(l.compute_function_values())
+    print(l.compute_causation_entropy_matrix())
+    print(l.identify_nonzero_causation_entropy_entries(100, 0.99))
 
     exit(0)
 
     CEM = calculate_CEM(z, f, gaussian_estimate)
+
+    # exit(0)
 
     CEM_permuted = []
     with Pool(8) as p:

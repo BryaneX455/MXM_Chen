@@ -43,15 +43,16 @@ class CausalityBasedSystemLearner:
         if self.function_library_quadratics != None:
             assert len(self.function_library) == len(self.function_library_quadratics)
 
-    def compute_function_values(
-        self,
-        tqdm=lambda iter: tqdm(iter, desc="Computing function library values"),
-    ):
         # Number of observations
         J = len(self.Z)
-        self.F = np.zeros((J, len(self.function_library)))
-        for j in tqdm(range(1, J)):
-            self.F[j] = np.array(list(map(lambda x: x(self.Z[j-1], j-1), self.function_library)))
+        self.F = np.zeros((J-1, len(self.function_library)))
+        for j in tqdm(range(0, J-1)):
+            self.F[j] = np.array(list(map(lambda x: x(self.Z[j], j), self.function_library)))
+        
+        # Save Z_0 and discard it from the data
+        self.Z_0 = Z[0]
+        # self.F = self.F[1:]
+        self.Z = self.Z[1:]
 
     def __compute_causation_entropy_matrix(
         z,
@@ -70,6 +71,11 @@ class CausalityBasedSystemLearner:
             indices = list(range(0, len(f[0])))
             indices.remove(m)
 
+            # if n == 0 and m == 0:
+            #     print(f[:, m:m+1]) 
+            #     print(z[:, n:n+1])
+            #     print(f[:, indices])
+
             # F_m to Z_n | F\{F_m}
             rv[n,m] = causation_entropy_estimator(
                 f[:, m:m+1], 
@@ -77,7 +83,7 @@ class CausalityBasedSystemLearner:
                 f[:, indices]
             )
 
-        return rv 
+        return rv
 
     def compute_causation_entropy_matrix(
         self,
@@ -109,19 +115,34 @@ class CausalityBasedSystemLearner:
     def identify_nonzero_causation_entropy_entries(
         self,
         permutations,
-        rng = np.random.default_rng(),
+        significance_level,
+        rng = lambda : np.random.default_rng(),
         tqdm = lambda iter: tqdm(iter, desc="Computing permuted causation entropy matrices"),
         threads = 8
     ):
         CEM_permuted = []
         with Pool(threads) as p:
             CEM_permuted = list(
-                tqdm(p.imap(
+                tqdm(
+                    p.imap(
                         CausalityBasedSystemLearner.permuted_CEM_helper, 
                         map(
-                            lambda x: (self.Z, self.F, self.causation_entropy_estimator, rng), 
+                            lambda x: (self.Z, self.F, self.causation_entropy_estimator, rng()), 
                             range(0, permutations)
                         )
-                    ))
+                    )
+                )
             )
         
+        CEM = self.compute_causation_entropy_matrix(tqdm=lambda x: x)
+        CEM_b = np.zeros(CEM.shape)
+        for (m,n) in product(range(0, CEM.shape[0]), range(0, CEM.shape[1])):
+            # See: Sun et. al. 2014 p. 3423
+            a: float = len(list(filter(lambda x: x <= CEM[m][n], map(lambda x: x[m][n], CEM_permuted))))
+            F_C = a / float(permutations)
+            # print(m,n, F_C)
+            CEM_b[m][n] = F_C > significance_level
+        
+        return CEM_b
+        
+
