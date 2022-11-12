@@ -1,6 +1,7 @@
 import numpy as np
 from tqdm import tqdm
 from itertools import product
+from functools import reduce
 from multiprocessing import Pool
 
 # Gaussian estimate of the causation entropy from Z to X conditioned on Y.
@@ -45,14 +46,14 @@ class CausalityBasedSystemLearner:
 
         # Number of observations
         J = len(self.Z)
-        self.F = np.zeros((J-1, len(self.function_library)))
-        for j in tqdm(range(0, J-1)):
-            self.F[j] = np.array(list(map(lambda x: x(self.Z[j], j), self.function_library)))
+        self.F = np.zeros((J, len(self.function_library)))
+        for j in tqdm(range(0, J)):
+            self.F[j] = np.array(list(map(lambda x: x(self.Z[j-1], j-1), self.function_library)))
         
         # Save Z_0 and discard it from the data
-        self.Z_0 = Z[0]
+        # self.Z_0 = Z[0]
         # self.F = self.F[1:]
-        self.Z = self.Z[1:]
+        # self.Z = self.Z[1:]
 
     def __compute_causation_entropy_matrix(
         z,
@@ -144,5 +145,39 @@ class CausalityBasedSystemLearner:
             CEM_b[m][n] = F_C > significance_level
         
         return CEM_b
-        
+    
+    def estimate_parameters(self):
+        CEM_b = self.identify_nonzero_causation_entropy_entries(100, 0.99)
+        CEM = self.compute_causation_entropy_matrix()
 
+        it = np.nditer(CEM_b, order='C', flags=['multi_index'])
+        Theta = list(map(lambda x: x[1], filter(lambda x: x[0] != 0, map(lambda x: (x, it.multi_index), it))))
+        H = np.array(list(map(lambda x: 1 if self.function_library_quadratics[x[1]] else 0, Theta)))
+
+        # Chen and Zhang (2022) Eqns. 15 and 16
+        M = np.zeros((len(self.Z), len(Theta), len(self.Z[0])))
+        for j in range(0, len(self.Z)):
+            for i, t in enumerate(Theta):
+                M[j][i][t[0]] = self.F[j][t[1]]
+        
+        Sigma = reduce(
+            lambda a, b: a+b, 
+            map(
+                lambda j: np.matmul((self.Z[j+1] - self.Z[j]).transpose(), (self.Z[j+1] - self.Z[j])), 
+                range(0, len(self.Z) - 1)
+            )
+        ) / len(self.Z)
+
+        D = reduce(lambda a,b: a+b, map(lambda j: (1/Sigma) * np.matmul(M[j], M[j].transpose()), range(0, len(self.Z))))
+        c = reduce(lambda a,b: a+b, map(lambda j: (1/Sigma) * np.matmul(M[j], (self.Z[j+1] - self.Z[j])), range(0, len(self.Z) - 1)))
+
+        lmbda = np.matmul(np.matmul(H.transpose(), np.linalg.inv(D)), H) / np.matmul(np.matmul(H, np.linalg.inv(D)), c)
+
+        result = np.zeros(CEM.shape)
+        for theta, loc in zip(np.matmul(
+            np.linalg.inv(D),
+            (c - lmbda * H.transpose())
+        ), Theta):
+            result[loc] = theta
+        
+        return result

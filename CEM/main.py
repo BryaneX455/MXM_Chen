@@ -83,6 +83,8 @@ def main():
                 [0,                 0,          1 - b * dt, 0, dt,  0]
             ])
 
+    print(L63_constants)
+
     L63_function_library = [
         lambda z, t: z[0],
         lambda z, t: z[1],
@@ -134,8 +136,10 @@ def main():
         function_library_is_quadratic_term,
     )
     # print(l.compute_function_values())
-    print(l.compute_causation_entropy_matrix())
-    print(l.identify_nonzero_causation_entropy_entries(100, 0.99))
+    # print(l.compute_causation_entropy_matrix())
+    # print(l.identify_nonzero_causation_entropy_entries(100, 0.99))
+
+    print(l.estimate_parameters())
 
     exit(0)
 
