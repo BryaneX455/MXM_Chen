@@ -139,7 +139,7 @@ def main():
     # print(l.compute_causation_entropy_matrix())
     # print(l.identify_nonzero_causation_entropy_entries(100, 0.99))
 
-    print(l.estimate_parameters())
+    print(l.go())
 
     exit(0)
 

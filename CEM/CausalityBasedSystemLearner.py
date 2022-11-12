@@ -1,8 +1,38 @@
 import numpy as np
 from tqdm import tqdm
-from itertools import product
+from itertools import product, repeat
 from functools import reduce
 from multiprocessing import Pool
+
+def construct_function_library(
+    N,
+    polynomial_power=2,
+    # trig_functions=False,
+):
+    rv = []
+    # if polynomial_power >= 1:
+    #     for j in range(0,N):
+    #         def f(z,t,j=j):
+    #             return z[j]
+    #         rv.append(f)
+
+    for k in range(1, polynomial_power + 1):
+        for multi_index in product(range(0,N), repeat=k):
+            def f(z,t, multi_index=multi_index):
+                return reduce(lambda a,b: a*b, map(lambda j: z[j], multi_index))
+            rv.append(f)
+
+    return rv
+
+def generate_function_library_timeseries(
+    z,
+    function_library,
+):
+    J = len(z)
+    f = np.zeros((J, len(function_library)))
+    for j in range(0, J):
+        f[j] = np.array(list(map(lambda x: x(z[j-1], j-1), function_library)))
+    return (z[1:], f[1:])
 
 # Gaussian estimate of the causation entropy from Z to X conditioned on Y.
 def causation_entropy_estimate_gaussian(Z, X, Y):
@@ -21,6 +51,125 @@ def causation_entropy_estimate_gaussian(Z, X, Y):
 
     return 0.5 * np.log(R_XY) - 0.5 * np.log(R_Y) - 0.5 * np.log(R_XYZ) + 0.5 * np.log(R_YZ)
 
+def compute_causation_entropy_matrix(
+    z,
+    f,
+    causation_entropy_estimator=causation_entropy_estimate_gaussian,
+    tqdm=lambda iter: iter,
+):
+    # Number of functions in the function library
+    M = len(f[0])
+    # Number of state variables
+    N = len(z[0])
+    
+    rv = np.zeros((N, M))
+    for (n, m) in tqdm(product(range(0, N), range(0, M))):
+        # F\{f_m}
+        indices = list(range(0, len(f[0])))
+        indices.remove(m)
+
+        # F_m to Z_n | F\{F_m}
+        rv[n,m] = causation_entropy_estimator(
+            f[:, m:m+1], 
+            z[:, n:n+1], 
+            f[:, indices]
+        )
+
+    return rv
+
+"""Permute a time series along the time axis (first coordinate)"""
+def permute_time_series(x, rng=np.random.default_rng()):
+    return np.array(
+        list(
+            map(lambda i: rng.permutation(x[:, [i]]), 
+                range(0, len(x[0]))
+            )
+        )
+    )
+
+"""Takes (Z, F, causation_entropy_estimator, rng)"""
+def __permuted_CEM_helper(args):
+    return compute_causation_entropy_matrix(
+        permute_time_series(args[0], args[3]),
+        permute_time_series(args[1], args[3]),
+        args[2]
+    )
+
+"""Generate `self.permutations` many random permutations of the timeseries `self.Z` and `self.F`, and then compute the causation entropy matrices on these permuted time series and store them in `self.permuted_causation_entropies`
+"""
+def compute_permuted_causation_entropies(
+    z,
+    f,
+    causation_entropy_estimator=causation_entropy_estimate_gaussian,
+    permutations = 100,
+    rng = lambda : np.random.default_rng(),
+    processes = 8,
+    tqdm = lambda iter: iter,
+):
+    with Pool(processes) as p:
+        return np.array(list(
+            tqdm(
+                p.imap_unordered(
+                    __permuted_CEM_helper,
+                    repeat(
+                        (z, f, causation_entropy_estimator, rng()),
+                        times=permutations
+                    )
+                )
+            )
+        ))
+
+"""Permutation test.
+
+Estimate the causation entropy matrix. Then count the number of permutations which are less than estimated causation entropy. If the proportion of permutations which are less than the estimated causation entropy is greater than the significance level, then decide that this entry has strictly positive causation entropy. Otherwise, decide it has zero causation entropy.
+"""
+def identify_nonzero_causation_entropy_entries(
+    z,
+    f,
+    causation_entropy_estimator=causation_entropy_estimate_gaussian,
+    permutations = 100,
+    significance_level = 0.99,
+    rng = lambda : np.random.default_rng(),
+    processes = 8,
+    tqdm = lambda iter: iter,
+):
+    CEM = compute_causation_entropy_matrix(z, f)
+    permuted_causation_entropies = compute_permuted_causation_entropies(
+        z,
+        f,
+        causation_entropy_estimator,
+        permutations,
+        rng,
+        processes,
+        tqdm)
+
+    Xi = np.zeros(CEM.shape)
+    for (m,n) in product(range(0, CEM.shape[0]), range(0, CEM.shape[1])):
+        # See: Sun et. al. 2014 p. 3423
+        count: float = len(list(
+            filter(lambda x: x <= CEM[m][n],
+            # Project to single entry of permuted_causation_entropies
+            map(lambda x: x[m][n], permuted_causation_entropies))
+        ))
+        prop = count / float(permutations)
+        Xi[m][n] = prop > significance_level
+
+    return Xi
+
+def extract_parameters(
+    xi
+):
+    iter = np.nditer(xi, order='C', flags=['multi_index'])
+     # Filter for nonzero entries in xi and then
+     # just return the multiindex.
+    return map(lambda x: x[1],
+        filter(lambda x: x[0] != 0,
+        map(lambda x: (x, it.multi_index), iter)))
+
+def asdf():
+    H = np.array(list(map(lambda x: 1 if self.function_library_quadratics[x[1]] else 0, Theta)))
+
+
 class CausalityBasedSystemLearner:
     """Initialize a CausalityBasedSystemLearner
 
@@ -34,12 +183,18 @@ class CausalityBasedSystemLearner:
         function_library,
         function_library_quadratics = None,
         causation_entropy_estimator = causation_entropy_estimate_gaussian,
+        permutations=100,
+        significance_level=0.99,
+        processes = 8,
     ):
         # shape: (timesteps, variables)
         self.Z = Z
         self.function_library = function_library
         self.function_library_quadratics = function_library_quadratics
         self.causation_entropy_estimator = causation_entropy_estimator
+        self.permutations = permutations
+        self.significance_level = significance_level
+        self.processes = processes
         
         if self.function_library_quadratics != None:
             assert len(self.function_library) == len(self.function_library_quadratics)
@@ -55,100 +210,26 @@ class CausalityBasedSystemLearner:
         # self.F = self.F[1:]
         # self.Z = self.Z[1:]
 
-    def __compute_causation_entropy_matrix(
-        z,
-        f,
-        causation_entropy_estimator,
-        tqdm=lambda iter: iter,
-    ):
-        # Number of functions in the function library
-        M = len(f[0])
-        # Number of state variables
-        N = len(z[0])
-        
-        rv = np.zeros((N, M))
-        for (n, m) in tqdm(product(range(0, N), range(0, M))):
-            # F\{f_m}
-            indices = list(range(0, len(f[0])))
-            indices.remove(m)
+    ###
+    # Causation Entropy
+    ###
 
-            # if n == 0 and m == 0:
-            #     print(f[:, m:m+1]) 
-            #     print(z[:, n:n+1])
-            #     print(f[:, indices])
+    # def compute_causation_entropy_matrix(
+    #     self,
+    #     tqdm=lambda iter: tqdm(iter, desc="Computing causation entropy matrix"),
+    # ):
+    #     return compute_causation_entropy_matrix(
+    #         self.Z,
+    #         self.F,
+    #         tqdm)
 
-            # F_m to Z_n | F\{F_m}
-            rv[n,m] = causation_entropy_estimator(
-                f[:, m:m+1], 
-                z[:, n:n+1], 
-                f[:, indices]
-            )
+    ###
+    # Permutation Test
+    ###
 
-        return rv
-
-    def compute_causation_entropy_matrix(
-        self,
-        tqdm=lambda iter: tqdm(iter, desc="Computing causation entropy matrix"),
-    ):
-        return CausalityBasedSystemLearner.__compute_causation_entropy_matrix(self.Z, self.F, self.causation_entropy_estimator, tqdm)
-
-    """Permute a time series along the time axis (first coordinate)"""
-    def permute_time_series(x, rng):
-        return np.array(
-            list(
-                map(lambda i: rng.permutation(x.transpose()[i]), 
-                    range(0, len(x[0]))
-                )
-            )
-        ).transpose()
-
-    """Takes (self, tqdm)
-
-    """
-    def permuted_CEM_helper(args):
-        return CausalityBasedSystemLearner.__compute_causation_entropy_matrix(
-            CausalityBasedSystemLearner.permute_time_series(args[0], args[3]), 
-            CausalityBasedSystemLearner.permute_time_series(args[1], args[3]),
-            args[2]
-        )
-
-    # Permutation test
-    def identify_nonzero_causation_entropy_entries(
-        self,
-        permutations,
-        significance_level,
-        rng = lambda : np.random.default_rng(),
-        tqdm = lambda iter: tqdm(iter, desc="Computing permuted causation entropy matrices"),
-        threads = 8
-    ):
-        CEM_permuted = []
-        with Pool(threads) as p:
-            CEM_permuted = list(
-                tqdm(
-                    p.imap(
-                        CausalityBasedSystemLearner.permuted_CEM_helper, 
-                        map(
-                            lambda x: (self.Z, self.F, self.causation_entropy_estimator, rng()), 
-                            range(0, permutations)
-                        )
-                    )
-                )
-            )
-        
-        CEM = self.compute_causation_entropy_matrix(tqdm=lambda x: x)
-        CEM_b = np.zeros(CEM.shape)
-        for (m,n) in product(range(0, CEM.shape[0]), range(0, CEM.shape[1])):
-            # See: Sun et. al. 2014 p. 3423
-            a: float = len(list(filter(lambda x: x <= CEM[m][n], map(lambda x: x[m][n], CEM_permuted))))
-            F_C = a / float(permutations)
-            # print(m,n, F_C)
-            CEM_b[m][n] = F_C > significance_level
-        
-        return CEM_b
-    
     def estimate_parameters(self):
-        CEM_b = self.identify_nonzero_causation_entropy_entries(100, 0.99)
-        CEM = self.compute_causation_entropy_matrix()
+        Xi = self.identify_nonzero_causation_entropy_entries()
+        # CEM = self.compute_causation_entropy_matrix()
 
         it = np.nditer(CEM_b, order='C', flags=['multi_index'])
         Theta = list(map(lambda x: x[1], filter(lambda x: x[0] != 0, map(lambda x: (x, it.multi_index), it))))
@@ -159,7 +240,7 @@ class CausalityBasedSystemLearner:
         for j in range(0, len(self.Z)):
             for i, t in enumerate(Theta):
                 M[j][i][t[0]] = self.F[j][t[1]]
-        
+
         Sigma = reduce(
             lambda a, b: a+b, 
             map(
@@ -181,3 +262,9 @@ class CausalityBasedSystemLearner:
             result[loc] = theta
         
         return result
+    
+    def go(self, tqdm=lambda iter: tqdm(iter, desc="Computing permuted causation entropy")):
+        Xi = self.identify_nonzero_causation_entropy_entries(tqdm)
+        return Xi
+
+        
