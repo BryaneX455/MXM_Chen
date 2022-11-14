@@ -1,6 +1,6 @@
 import numpy as np
 from tqdm import tqdm
-from itertools import product, repeat
+from itertools import product, repeat, combinations_with_replacement
 from functools import reduce
 from multiprocessing import Pool
 
@@ -10,21 +10,17 @@ def construct_function_library(
     # trig_functions=False,
 ):
     rv = []
-    # if polynomial_power >= 1:
-    #     for j in range(0,N):
-    #         def f(z,t,j=j):
-    #             return z[j]
-    #         rv.append(f)
-
     for k in range(1, polynomial_power + 1):
-        for multi_index in product(range(0,N), repeat=k):
+        for multi_index in combinations_with_replacement(range(0,N), k):
+            name = reduce(lambda a,b: a+"*"+b, map(lambda x: f'z[{x}]', multi_index))
             def f(z,t, multi_index=multi_index):
                 return reduce(lambda a,b: a*b, map(lambda j: z[j], multi_index))
-            rv.append((f, k == 2))
+            rv.append((f, name, k == 2))
 
     return (
-        list(map(lambda x: x[0], rv)), 
-        list(map(lambda x: x[1], rv))
+        list(map(lambda x: x[0], rv)),
+        list(map(lambda x: x[1], rv)),
+        list(map(lambda x: x[2], rv))
     )
 
 def generate_function_library_timeseries(
@@ -81,7 +77,7 @@ def compute_causation_entropy_matrix(
     return rv
 
 """Permute a time series along the time axis (first coordinate)"""
-def permute_time_series(x, rng=np.random.default_rng()):
+def permute_time_series(x, rng):
     return np.concatenate(
             list(map(lambda i: rng.permutation(x[:, [i]]), 
                 range(0, len(x[0]))
@@ -105,7 +101,7 @@ def compute_permuted_causation_entropies(
     f,
     causation_entropy_estimator=causation_entropy_estimate_gaussian,
     permutations = 100,
-    rng = lambda : np.random.default_rng(),
+    rng = lambda s: np.random.default_rng(s),
     processes = 8,
     tqdm = lambda iter: iter,
 ):
@@ -114,9 +110,9 @@ def compute_permuted_causation_entropies(
             tqdm(
                 p.imap_unordered(
                     __permuted_CEM_helper,
-                    repeat(
-                        (z, f, causation_entropy_estimator, rng()),
-                        times=permutations
+                    map(
+                        lambda i: (z, f, causation_entropy_estimator, rng(i+3)),
+                        range(0, permutations)
                     )
                 )
             )
@@ -132,7 +128,7 @@ def identify_nonzero_causation_entropy_entries(
     causation_entropy_estimator=causation_entropy_estimate_gaussian,
     permutations = 100,
     significance_level = 0.99,
-    rng = lambda : np.random.default_rng(),
+    rng = lambda s: np.random.default_rng(s),
     processes = 8,
     tqdm = lambda iter: iter,
 ):
@@ -165,9 +161,9 @@ def extract_parameters(
     iter = np.nditer(xi, order='C', flags=['multi_index'])
      # Filter for nonzero entries in xi and then
      # just return the multiindex.
-    return map(lambda x: x[1],
+    return list(map(lambda x: x[1],
         filter(lambda x: x[0] != 0,
-        map(lambda x: (x, it.multi_index), iter)))
+        map(lambda x: (x, iter.multi_index), iter))))
 
 """M from Chen & Zhang 2022 Eq. 12,14"""
 def construct_parameter_estimation_matrices(
@@ -192,25 +188,25 @@ def estimate_sigma(
             )
         ) / len(z)
 
-def estimat_parameters(
+def estimate_parameters(
     z,
     f,
-    parameter_indices,
-    Sigma,
+    parameter_indices
 ):
+    Sigma = estimate_sigma(z)
     M = construct_parameter_estimation_matrices(z,f,parameter_indices)
     D = (1/Sigma) * reduce(
         lambda a,b: a+b, 
         map(
             lambda j: np.matmul(M[j], M[j].transpose()), 
-            range(0, len(self.Z))
+            range(0, len(z))
         )
     )
     c = (1/Sigma) * reduce(
         lambda a,b: a+b, 
         map(
-            lambda j: np.matmul(M[j], (self.Z[j+1] - self.Z[j])), 
-            range(0, len(self.Z) - 1)
+            lambda j: np.matmul(M[j], (z[j+1] - z[j])), 
+            range(0, len(z) - 1)
         )
     )
 

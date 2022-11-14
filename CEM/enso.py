@@ -13,7 +13,9 @@ def main():
         lib
     )
 
-    print(identify_nonzero_causation_entropy_entries(Z, F, permutations=250, tqdm=lambda iter: tqdm(iter, desc="Computing permuted causation entropy")))
+    xi = identify_nonzero_causation_entropy_entries(Z, F, permutations=250, tqdm=lambda iter: tqdm(iter, desc="Computing permuted causation entropy"))
+    params = extract_parameters(xi)
+    print(estimate_parameters(Z,F,params))
 
 if __name__ == "__main__":
     main()

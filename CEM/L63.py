@@ -8,14 +8,14 @@ def L63_model(sigma, r, b, dt, noise):
     ]) + np.random.normal(scale=noise, size=3)
 
 def main():
-    count = 1_000_000
+    count = 250_000
 
     # L63 Parameters
     sigma: float = 10
     r: float = 28
     b: float = 8/3
     dt: float = 0.001
-    noise = 0
+    noise = 0.001
 
     model = L63_model(sigma, r, b, dt, noise)
 
@@ -32,13 +32,17 @@ def main():
     
     print(z)
     
-    (lib, quadratics) = construct_function_library(3, polynomial_power=2)
+    (lib, names, quadratics) = construct_function_library(3, polynomial_power=2)
     (Z, F) = generate_function_library_timeseries(
         z,
         lib
     )
-    print(identify_nonzero_causation_entropy_entries(Z, F, permutations=100, tqdm=lambda iter: tqdm(iter, desc="Computing permuted causation entropy")))
-
+    print(names)
+    print(compute_causation_entropy_matrix(Z,F))
+    xi = identify_nonzero_causation_entropy_entries(Z, F, permutations=75, tqdm=lambda iter: tqdm(iter, desc="Computing permuted causation entropy"))
+    print(xi)
+    params = extract_parameters(xi)
+    print(estimate_parameters(Z,F,params))
 
 if __name__ == "__main__":
     main()
