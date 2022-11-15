@@ -39,7 +39,7 @@ def main():
     )
     print(names)
     print(compute_causation_entropy_matrix(Z,F))
-    xi = identify_nonzero_causation_entropy_entries(Z, F, permutations=75, tqdm=lambda iter: tqdm(iter, desc="Computing permuted causation entropy"))
+    xi = identify_nonzero_causation_e`ntropy_entries(Z, F, permutations=75, tqdm=lambda iter: tqdm(iter, desc="Computing permuted causation entropy"))
     print(xi)
     params = extract_parameters(xi)
     print(estimate_parameters(Z,F,params))
