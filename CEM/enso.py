@@ -13,13 +13,18 @@ def main():
         lib
     )
 
+    print("Causation Entropy Matrix:")
     print(compute_causation_entropy_matrix(Z,F))
-    xi = identify_nonzero_causation_entropy_entries(Z, F, permutations=250, tqdm=lambda iter: tqdm(iter, desc="Computing permuted causation entropy"))
+    print("--------------------------------------------------")
+    xi = identify_nonzero_causation_entropy_entries(Z, F, permutations=250, significance_level=0.99, tqdm=lambda iter: tqdm(iter, desc="Computing permuted causation entropy"))
     print(names)
+    print("Xi:")
     print(xi)
+    print("--------------------------------------------------")
     params = extract_parameters(xi)
-    print(estimate_parameters(Z,F,params))
-    print(estimate_parameters_with_physics_constraints(Z,F,params,quadratics))
+    print("Without Physics Constraints: ", estimate_parameters(Z,F,params))
+    (lmbda, results) = estimate_parameters_with_physics_constraints(Z,F,params,quadratics)
+    print("With Physics Constraints: λ = ", lmbda, " ", results)
 
 if __name__ == "__main__":
     main()

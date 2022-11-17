@@ -240,11 +240,10 @@ def estimate_parameters_with_physics_constraints(
         np.matmul(H.transpose(),
         np.linalg.inv(D)
         ), H) / np.matmul(np.matmul(H, np.linalg.inv(D)), c)
-    print(lmbda)
-    return np.matmul(
+    return (lmbda, np.matmul(
             np.linalg.inv(D),
             (c - lmbda * H.transpose())
-        )
+        ))
 
 class CausalityBasedSystemLearner:
     """Initialize a CausalityBasedSystemLearner
