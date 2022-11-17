@@ -32,7 +32,7 @@ def main():
     
     print(z)
     
-    (lib, names, quadratics) = construct_function_library(3, polynomial_power=2)
+    (lib, names, H) = construct_function_library(3, polynomial_power=2)
     (Z, F) = generate_function_library_timeseries(
         z,
         lib

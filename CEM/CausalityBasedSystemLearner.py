@@ -20,7 +20,7 @@ def construct_function_library(
     return (
         list(map(lambda x: x[0], rv)),
         list(map(lambda x: x[1], rv)),
-        list(map(lambda x: x[2], rv))
+        list(map(lambda x: x[2], rv)),
     )
 
 def generate_function_library_timeseries(
@@ -212,10 +212,39 @@ def estimate_parameters(
 
     return np.matmul(np.linalg.inv(D), c)
 
+def estimate_parameters_with_physics_constraints(
+    z,
+    f,
+    parameter_indices,
+    quadratics,
+):
+    Sigma = estimate_sigma(z)
+    M = construct_parameter_estimation_matrices(z,f,parameter_indices)
+    D = (1/Sigma) * reduce(
+        lambda a,b: a+b, 
+        map(
+            lambda j: np.matmul(M[j], M[j].transpose()), 
+            range(0, len(z))
+        )
+    )
+    c = (1/Sigma) * reduce(
+        lambda a,b: a+b, 
+        map(
+            lambda j: np.matmul(M[j], (z[j+1] - z[j])), 
+            range(0, len(z) - 1)
+        )
+    )
+    H = np.array(list(map(lambda x: 1 if quadratics[x[1]] else 0, parameter_indices)))
 
-# def compute_physics_():
-#     H = np.array(list(map(lambda x: 1 if self.function_library_quadratics[x[1]] else 0, Theta)))
-
+    lmbda = np.matmul(
+        np.matmul(H.transpose(),
+        np.linalg.inv(D)
+        ), H) / np.matmul(np.matmul(H, np.linalg.inv(D)), c)
+    print(lmbda)
+    return np.matmul(
+            np.linalg.inv(D),
+            (c - lmbda * H.transpose())
+        )
 
 class CausalityBasedSystemLearner:
     """Initialize a CausalityBasedSystemLearner
@@ -310,8 +339,6 @@ class CausalityBasedSystemLearner:
         
         return result
     
-    def go(self, tqdm=lambda iter: tqdm(iter, desc="Computing permuted causation entropy")):
-        Xi = self.identify_nonzero_causation_entropy_entries(tqdm)
-        return Xi
+    
 
         

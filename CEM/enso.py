@@ -19,6 +19,7 @@ def main():
     print(xi)
     params = extract_parameters(xi)
     print(estimate_parameters(Z,F,params))
+    print(estimate_parameters_with_physics_constraints(Z,F,params,quadratics))
 
 if __name__ == "__main__":
     main()
