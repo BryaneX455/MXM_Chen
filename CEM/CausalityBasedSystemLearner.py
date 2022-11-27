@@ -6,13 +6,14 @@ from multiprocessing import Pool
 
 def construct_function_library(
     N,
+    names = ["x","y","z"],
     polynomial_power=2,
     # trig_functions=False,
 ):
     rv = []
     for k in range(1, polynomial_power + 1):
         for multi_index in combinations_with_replacement(range(0,N), k):
-            name = reduce(lambda a,b: a+"*"+b, map(lambda x: f'z[{x}]', multi_index))
+            name = reduce(lambda a,b: a+b, map(lambda x: names[x], multi_index))
             def f(z,t, multi_index=multi_index):
                 return reduce(lambda a,b: a*b, map(lambda j: z[j], multi_index))
             rv.append((f, name, k == 2))
@@ -164,6 +165,16 @@ def extract_parameters(
     return list(map(lambda x: x[1],
         filter(lambda x: x[0] != 0,
         map(lambda x: (x, iter.multi_index), iter))))
+
+def format_equations(params, names, values):
+    eqns = []
+    for _ in range(0, len(set(map(lambda x: x[0], params)))):
+        eqns.append([])
+    for (j, p) in enumerate(params):
+        s = f"{values[j]:.4g} {names[p[1]]}"
+        print(p, s)
+        eqns[p[0]].append(s)
+    return eqns
 
 """M from Chen & Zhang 2022 Eq. 12,14"""
 def construct_parameter_estimation_matrices(
