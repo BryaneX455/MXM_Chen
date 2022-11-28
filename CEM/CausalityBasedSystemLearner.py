@@ -227,7 +227,7 @@ def estimate_parameters_with_physics_constraints(
     z,
     f,
     parameter_indices,
-    quadratics,
+    paired_functions,
 ):
     Sigma = estimate_sigma(z)
     M = construct_parameter_estimation_matrices(z,f,parameter_indices)
@@ -245,16 +245,18 @@ def estimate_parameters_with_physics_constraints(
             range(0, len(z) - 1)
         )
     )
-    H = np.array(list(map(lambda x: 1 if quadratics[x[1]] else 0, parameter_indices)))
 
-    lmbda = np.matmul(
-        np.matmul(H.transpose(),
-        np.linalg.inv(D)
-        ), H) / np.matmul(np.matmul(H, np.linalg.inv(D)), c)
-    return (lmbda, np.matmul(
-            np.linalg.inv(D),
-            (c - lmbda * H.transpose())
-        ))
+    H = np.zeros((2, len(parameter_indices)))
+    for (fx, fy) in paired_functions:
+        H[0][fx] = 1
+        H[1][fy] = 1
+
+    lmbda_a = np.matmul(np.matmul(H, np.linalg.inv(D)), H.transpose())
+    lmbda_b = np.matmul(np.matmul(H, np.linalg.inv(D)), c)
+    lmbda = np.matmul(np.linalg.inv(lmbda_a), lmbda_b)
+
+    return (lmbda, 
+        np.matmul(np.linalg.inv(D), (c - np.matmul(H.transpose(), lmbda))))
 
 class CausalityBasedSystemLearner:
     """Initialize a CausalityBasedSystemLearner

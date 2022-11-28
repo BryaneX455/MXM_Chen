@@ -44,8 +44,8 @@ def main():
     print("--------------------------------------------------")
     params = extract_parameters(xi)
     print("Without Physics Constraints: ", estimate_parameters(Z,F,params))
-    # (lmbda, results) = estimate_parameters_with_physics_constraints(Z,F,params,quadratics)
-    # print("With Physics Constraints: λ = ", lmbda, " ", results)
+    (lmbda, results) = estimate_parameters_with_physics_constraints(Z,F,params,paired_functions)
+    print("With Physics Constraints: λ = ", lmbda, " ", results)
     # print(list(map(lambda x: reduce(lambda a,b: a+" + "+b, x), format_equations(params, names, results))))
 
 if __name__ == "__main__":
