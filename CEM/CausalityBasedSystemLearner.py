@@ -193,13 +193,12 @@ def estimate_sigma(
     Theta,
     M,
 ):
-    # print(np.matmul(M[0], Theta))
     return reduce(
             lambda a, b: a+b,
             map(
-                lambda j: np.matmul(
+                lambda j: np.outer(
                     (z[j+1] - np.matmul(M[j], Theta) - z[j]), 
-                    (z[j+1] - np.matmul(M[j], Theta) - z[j]).transpose()
+                    (z[j+1] - np.matmul(M[j], Theta) - z[j])
                 ),
                 range(0, len(z) - 1)
             )
@@ -250,17 +249,17 @@ def estimate_parameters_with_physics_constraints(
         Sigma = estimate_sigma(z, Theta, M)
         print(Sigma)
         
-        D = (1/Sigma) * reduce(
+        D = reduce(
             lambda a,b: a+b, 
             map(
-                lambda j: np.matmul(M[j].transpose(), M[j]), 
+                lambda j: np.matmul(M[j].transpose(), np.matmul(np.linalg.inv(Sigma), M[j])),
                 range(0, len(z))
             )
         )
-        c = (1/Sigma) * reduce(
+        c = reduce(
             lambda a,b: a+b, 
             map(
-                lambda j: np.matmul(M[j].transpose(), (z[j+1] - z[j])), 
+                lambda j: np.matmul(M[j].transpose(), np.matmul(np.linalg.inv(Sigma), (z[j+1] - z[j]))), 
                 range(0, len(z) - 1)
             )
         )

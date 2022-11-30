@@ -52,7 +52,7 @@ def main():
         theta[j][k] = results[i]
     print(theta)
 
-    print(simulate_future(Z[0], lib, theta))
+    print(simulate_future(Z[0], lib, theta, 20))
 
 def simulate_future(
     z_0,
