@@ -21,7 +21,7 @@ def main():
     ]
 
     (Z, F) = generate_function_library_timeseries(
-        data[:, [2,3]],
+        data[:, [2,3]] / np.std(data[:, [2,3]], axis=0), # Normalized data
         lib
     )
 
@@ -29,8 +29,8 @@ def main():
     print(compute_causation_entropy_matrix(Z,F))
     print("--------------------------------------------------")
     xi = identify_nonzero_causation_entropy_entries(
-        Z, 
-        F, 
+        Z,
+        F,
         permutations=250, 
         significance_level=0.99, 
         tqdm=lambda iter: tqdm(iter, desc="Computing permuted causation entropy"))
@@ -44,9 +44,29 @@ def main():
     print("--------------------------------------------------")
     params = extract_parameters(xi)
     print("Without Physics Constraints: ", estimate_parameters(Z,F,params))
-    (lmbda, results) = estimate_parameters_with_physics_constraints(Z,F,params,paired_functions)
-    print("With Physics Constraints: λ = ", lmbda, " ", results)
-    # print(list(map(lambda x: reduce(lambda a,b: a+" + "+b, x), format_equations(params, names, results))))
+    results = estimate_parameters_with_physics_constraints(Z,F,params,paired_functions,physics_constraints=False)
+    # print("With Physics Constraints:", results)
+    print(params)
+    theta = np.zeros((2, len(lib)))
+    for (i, (j, k)) in enumerate(params):
+        theta[j][k] = results[i]
+    print(theta)
+
+    print(simulate_future(Z[0], lib, theta))
+
+def simulate_future(
+    z_0,
+    function_library,
+    theta,
+    count=1000,
+):
+    z = z_0
+    rv = np.zeros((count, len(z_0)))
+    for t in range(0, count):
+        f = np.array(list(map(lambda l: l(z, t), function_library)))
+        z = np.matmul(theta, f)
+        rv[t] = z
+    return rv
 
 if __name__ == "__main__":
     main()

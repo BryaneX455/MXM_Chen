@@ -204,30 +204,38 @@ def estimate_parameters(
     f,
     parameter_indices
 ):
-    Sigma = estimate_sigma(z)
-    M = construct_parameter_estimation_matrices(z,f,parameter_indices)
-    D = (1/Sigma) * reduce(
-        lambda a,b: a+b, 
-        map(
-            lambda j: np.matmul(M[j], M[j].transpose()), 
-            range(0, len(z))
-        )
+    return estimate_parameters_with_physics_constraints(
+        z,
+        f,
+        parameter_indices,
+        [],
+        physics_constraints=False
     )
-    c = (1/Sigma) * reduce(
-        lambda a,b: a+b, 
-        map(
-            lambda j: np.matmul(M[j], (z[j+1] - z[j])), 
-            range(0, len(z) - 1)
-        )
-    )
+    # Sigma = estimate_sigma(z)
+    # M = construct_parameter_estimation_matrices(z,f,parameter_indices)
+    # D = (1/Sigma) * reduce(
+    #     lambda a,b: a+b, 
+    #     map(
+    #         lambda j: np.matmul(M[j], M[j].transpose()), 
+    #         range(0, len(z))
+    #     )
+    # )
+    # c = (1/Sigma) * reduce(
+    #     lambda a,b: a+b, 
+    #     map(
+    #         lambda j: np.matmul(M[j], (z[j+1] - z[j])), 
+    #         range(0, len(z) - 1)
+    #     )
+    # )
 
-    return np.matmul(np.linalg.inv(D), c)
+    # return np.matmul(np.linalg.inv(D), c)
 
 def estimate_parameters_with_physics_constraints(
     z,
     f,
     parameter_indices,
     paired_functions,
+    physics_constraints=True,
 ):
     Sigma = estimate_sigma(z)
     M = construct_parameter_estimation_matrices(z,f,parameter_indices)
@@ -246,17 +254,20 @@ def estimate_parameters_with_physics_constraints(
         )
     )
 
-    H = np.zeros((2, len(parameter_indices)))
-    for (fx, fy) in paired_functions:
-        H[0][fx] = 1
-        H[1][fy] = 1
+    if physics_constraints:
+        H = np.zeros((2, len(parameter_indices)))
+        for (fx, fy) in paired_functions:
+            H[0][fx] = 1
+            H[1][fy] = 1
 
-    lmbda_a = np.matmul(np.matmul(H, np.linalg.inv(D)), H.transpose())
-    lmbda_b = np.matmul(np.matmul(H, np.linalg.inv(D)), c)
-    lmbda = np.matmul(np.linalg.inv(lmbda_a), lmbda_b)
+        lmbda_a = np.matmul(np.matmul(H, np.linalg.inv(D)), H.transpose())
+        lmbda_b = np.matmul(np.matmul(H, np.linalg.inv(D)), c)
+        lmbda = np.matmul(np.linalg.inv(lmbda_a), lmbda_b)
 
-    return (lmbda, 
-        np.matmul(np.linalg.inv(D), (c - np.matmul(H.transpose(), lmbda))))
+        return np.matmul(np.linalg.inv(D), (c - np.matmul(H.transpose(), lmbda)))
+    else: # No physics constraints
+        return np.matmul(np.linalg.inv(D), c)
+
 
 class CausalityBasedSystemLearner:
     """Initialize a CausalityBasedSystemLearner
