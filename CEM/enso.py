@@ -9,11 +9,11 @@ def main():
     data = np.genfromtxt('ENSO_TimeSeries.csv', delimiter=',', skip_header=1)
     # (lib, names, quadratics) = construct_function_library(2, polynomial_power=2)
     lib = [
-        lambda z, t: z[0],
-        lambda z, t: z[1],
-        lambda z, t: z[0] * z[0],
-        lambda z, t: z[0] * z[1],
-        lambda z, t: z[1] * z[1],
+        lambda z, t: z[0],          # x
+        lambda z, t: z[1],          # y
+        lambda z, t: z[0] * z[0],   # x^2
+        lambda z, t: z[0] * z[1],   # xy
+        lambda z, t: z[1] * z[1],   # y^2
     ]
 
     paired_functions = [
@@ -44,8 +44,8 @@ def main():
     print("--------------------------------------------------")
     params = extract_parameters(xi)
     print("Without Physics Constraints: ", estimate_parameters(Z,F,params))
-    results = estimate_parameters_with_physics_constraints(Z,F,params,paired_functions,physics_constraints=False)
-    # print("With Physics Constraints:", results)
+    results = estimate_parameters_with_physics_constraints(Z,F,params,paired_functions,physics_constraints=True)
+    print("With Physics Constraints:", results)
     print(params)
     theta = np.zeros((2, len(lib)))
     for (i, (j, k)) in enumerate(params):

@@ -182,19 +182,25 @@ def construct_parameter_estimation_matrices(
     f,
     parameter_indices,
 ):
-    M = np.zeros((len(z), len(parameter_indices), len(z[0])))
+    M = np.zeros((len(z), len(z[0]), len(parameter_indices)))
     for j in range(0, len(z)):
         for i, t in enumerate(parameter_indices):
-            M[j][i][t[0]] = f[j][t[1]]
+            M[j][t[0]][i] = f[j][t[1]]
     return M
 
 def estimate_sigma(
     z,
+    Theta,
+    M,
 ):
+    # print(np.matmul(M[0], Theta))
     return reduce(
             lambda a, b: a+b,
             map(
-                lambda j: np.matmul((z[j+1] - z[j]).transpose(), (z[j+1] - z[j])), 
+                lambda j: np.matmul(
+                    (z[j+1] - np.matmul(M[j], Theta) - z[j]), 
+                    (z[j+1] - np.matmul(M[j], Theta) - z[j]).transpose()
+                ),
                 range(0, len(z) - 1)
             )
         ) / len(z)
@@ -237,36 +243,43 @@ def estimate_parameters_with_physics_constraints(
     paired_functions,
     physics_constraints=True,
 ):
-    Sigma = estimate_sigma(z)
     M = construct_parameter_estimation_matrices(z,f,parameter_indices)
-    D = (1/Sigma) * reduce(
-        lambda a,b: a+b, 
-        map(
-            lambda j: np.matmul(M[j], M[j].transpose()), 
-            range(0, len(z))
+    Theta = np.zeros((len(parameter_indices)))
+    for _ in range(0, 15):
+        print(Theta)
+        Sigma = estimate_sigma(z, Theta, M)
+        print(Sigma)
+        
+        D = (1/Sigma) * reduce(
+            lambda a,b: a+b, 
+            map(
+                lambda j: np.matmul(M[j].transpose(), M[j]), 
+                range(0, len(z))
+            )
         )
-    )
-    c = (1/Sigma) * reduce(
-        lambda a,b: a+b, 
-        map(
-            lambda j: np.matmul(M[j], (z[j+1] - z[j])), 
-            range(0, len(z) - 1)
+        c = (1/Sigma) * reduce(
+            lambda a,b: a+b, 
+            map(
+                lambda j: np.matmul(M[j].transpose(), (z[j+1] - z[j])), 
+                range(0, len(z) - 1)
+            )
         )
-    )
 
-    if physics_constraints:
-        H = np.zeros((2, len(parameter_indices)))
-        for (fx, fy) in paired_functions:
-            H[0][fx] = 1
-            H[1][fy] = 1
+        if physics_constraints:
+            H = np.zeros((len(paired_functions), len(parameter_indices)))
+            # for (i, (fx, fy)) in enumerate(paired_functions):
+            #     H[i][fx] = 1
+            #     H[i][fy] = 1
+            H = np.array([[0,0,1,0,0,0,1,0], [0,0,0,1,0,0,0,1]])
 
-        lmbda_a = np.matmul(np.matmul(H, np.linalg.inv(D)), H.transpose())
-        lmbda_b = np.matmul(np.matmul(H, np.linalg.inv(D)), c)
-        lmbda = np.matmul(np.linalg.inv(lmbda_a), lmbda_b)
+            lmbda_a = np.matmul(np.matmul(H, np.linalg.inv(D)), H.transpose())
+            lmbda_b = np.matmul(np.matmul(H, np.linalg.inv(D)), c)
+            lmbda = np.matmul(np.linalg.inv(lmbda_a), lmbda_b)
 
-        return np.matmul(np.linalg.inv(D), (c - np.matmul(H.transpose(), lmbda)))
-    else: # No physics constraints
-        return np.matmul(np.linalg.inv(D), c)
+            Theta = np.matmul(np.linalg.inv(D), (c - np.matmul(H.transpose(), lmbda)))
+        else: # No physics constraints
+            Theta = np.matmul(np.linalg.inv(D), c)
+    return Theta
 
 
 class CausalityBasedSystemLearner:
