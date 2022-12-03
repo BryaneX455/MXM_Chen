@@ -185,7 +185,7 @@ def construct_parameter_estimation_matrices(
     M = np.zeros((len(z), len(z[0]), len(parameter_indices)))
     for j in range(0, len(z)):
         for i, t in enumerate(parameter_indices):
-            M[j][t[0]][i] = f[j][t[1]]
+            M[j][t[0]][i] = (f[j][t[1]]/365)
     return M
 
 def estimate_sigma(
@@ -207,47 +207,16 @@ def estimate_sigma(
 def estimate_parameters(
     z,
     f,
-    parameter_indices
-):
-    return estimate_parameters_with_physics_constraints(
-        z,
-        f,
-        parameter_indices,
-        [],
-        physics_constraints=False
-    )
-    # Sigma = estimate_sigma(z)
-    # M = construct_parameter_estimation_matrices(z,f,parameter_indices)
-    # D = (1/Sigma) * reduce(
-    #     lambda a,b: a+b, 
-    #     map(
-    #         lambda j: np.matmul(M[j], M[j].transpose()), 
-    #         range(0, len(z))
-    #     )
-    # )
-    # c = (1/Sigma) * reduce(
-    #     lambda a,b: a+b, 
-    #     map(
-    #         lambda j: np.matmul(M[j], (z[j+1] - z[j])), 
-    #         range(0, len(z) - 1)
-    #     )
-    # )
-
-    # return np.matmul(np.linalg.inv(D), c)
-
-def estimate_parameters_with_physics_constraints(
-    z,
-    f,
     parameter_indices,
-    paired_functions,
-    physics_constraints=True,
+    paired_functions=[],
+    physics_constraints=False,
 ):
     M = construct_parameter_estimation_matrices(z,f,parameter_indices)
     Theta = np.zeros((len(parameter_indices)))
     for _ in range(0, 2):
-        print(Theta)
+        # print(Theta)
         Sigma = estimate_sigma(z, Theta, M)
-        print(Sigma)
+        # print(Sigma)
         
         D = reduce(
             lambda a,b: a+b, 
@@ -278,7 +247,7 @@ def estimate_parameters_with_physics_constraints(
             Theta = np.matmul(np.linalg.inv(D), (c - np.matmul(H.transpose(), lmbda)))
         else: # No physics constraints
             Theta = np.matmul(np.linalg.inv(D), c)
-    return Theta
+    return (Sigma, Theta)
 
 
 class CausalityBasedSystemLearner:
