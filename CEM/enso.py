@@ -31,8 +31,8 @@ def main():
     xi = identify_nonzero_causation_entropy_entries(
         Z,
         F,
-        permutations=250, 
-        significance_level=0.99, 
+        permutations=250,
+        significance_level=0.99,
         tqdm=lambda iter: tqdm(iter, desc="Computing permuted causation entropy"))
     # print(names)
     print("Xi:")
@@ -50,9 +50,9 @@ def main():
     theta = np.zeros((2, len(lib)))
     for (i, (j, k)) in enumerate(params):
         theta[j][k] = results[i]
-    print(theta)
+    print("Theta: ", theta)
 
-    print(simulate_future(Z[0], lib, theta, 20))
+    print(simulate_future(Z[0], lib, theta*1000, 200))
 
 def simulate_future(
     z_0,

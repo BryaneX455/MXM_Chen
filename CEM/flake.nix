@@ -1,6 +1,14 @@
 {
+  # nixConfig.extra-substituters = [
+  #   "https://tweag-jupyter.cachix.org"
+  # ];
+  # nixConfig.extra-trusted-public-keys = [
+  #   "tweag-jupyter.cachix.org-1:UtNH4Zs6hVUFpFBTLaA4ejYavPo5EFFqgd7G7FxGW9g="
+  # ];
+
   inputs = {
-    mach-nix.url = "github:DavHau/mach-nix?tag=3.5.0";
+    mach-nix.url = "github:DavHau/mach-nix";
+    # jupyter.url = "github:tweag/jupyterWith";
   };
 
   # See: https://gist.github.com/piperswe/6be06f58ba3925801b0dcceab22c997b for more on nix multiarch images.
@@ -8,7 +16,7 @@
   outputs = {self, nixpkgs, mach-nix }@inp:
     let
       requirements = builtins.readFile ./requirements.txt;
-      python = "python310";
+      python = "python39";
       name = "cem";
       tag = "main";
 
@@ -23,6 +31,23 @@
           inherit python;
         };
       });
+
+      # packages = forAllSystems (system: pkgs: let
+      #   machNix = mach-nix.lib."${system}".mkPython {
+      #     inherit requirements;
+      #     inherit python;
+      #   };
+      #   iPython = jupyter.jupyterKernels.python {
+      #     name = "mach-nix-jupyter";
+      #     python3 = machNix.python;
+      #     packages = machNix.python.pkgs.selectPkgs;
+      #   };
+      #   jupyterEnvironment = jupyter.lib.x86_64-linux.mkJupyterlab {
+      #     kernels = (k: [ iPython ]);
+      #   };
+      #   in
+      #   jupyterEnvironment.env
+      # );
 
       apps = forAllSystems (system: pkgs: {
         default = {

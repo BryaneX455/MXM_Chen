@@ -244,7 +244,7 @@ def estimate_parameters_with_physics_constraints(
 ):
     M = construct_parameter_estimation_matrices(z,f,parameter_indices)
     Theta = np.zeros((len(parameter_indices)))
-    for _ in range(0, 15):
+    for _ in range(0, 2):
         print(Theta)
         Sigma = estimate_sigma(z, Theta, M)
         print(Sigma)
