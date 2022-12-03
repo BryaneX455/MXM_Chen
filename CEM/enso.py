@@ -4,8 +4,16 @@ import numpy as np
 from CausalityBasedSystemLearner import *
 from itertools import product
 from tqdm import tqdm
+import matplotlib.pyplot as plt
+import scipy.io
 
 def main():
+    # mat = scipy.io.loadmat('Obs_ENSO.mat')
+    # print(mat.keys())
+    # print(mat['h_W_new'])
+
+    # exit(0)
+
     data = np.genfromtxt('ENSO_TimeSeries.csv', delimiter=',', skip_header=1)
     # (lib, names, quadratics) = construct_function_library(2, polynomial_power=2)
     lib = [
@@ -20,8 +28,9 @@ def main():
         (3, 2), (4, 3)
     ]
 
+    normalized_data = data[:, [2,3]] / np.std(data[:, [2,3]], axis=0)
     (Z, F) = generate_function_library_timeseries(
-        data[:, [2,3]] / np.std(data[:, [2,3]], axis=0), # Normalized data
+        normalized_data,
         lib
     )
 
@@ -51,7 +60,36 @@ def main():
     print("Xi: ", theta)
     print("Sigma: ", sigma)
 
-    print(simulate_future(Z[0], lib, theta/365, sigma, count=50000))
+    # Simulate futures and generate histograms
+    future = simulate_future(Z[0], lib, theta/365, 2000*sigma, count=normalized_data.shape[0])
+    fig, axs = plt.subplots(2, 2, sharey=True, tight_layout=True)
+    axs[0][0].hist(normalized_data[:, 0], bins=100)
+    axs[0][0].title.set_text("Therm. Depth (Actual, Normalized)")
+    axs[0][1].hist(normalized_data[:, 1], bins=100)
+    axs[0][1].title.set_text("S.s. Temp. (Actual, Normalized)")
+    axs[1][0].hist(future[:, 0], bins=100)
+    axs[1][0].title.set_text("Thermocline Depth (Simulated)")
+    axs[1][1].hist(future[:, 1], bins=100)
+    axs[1][1].title.set_text("Seasurface Temperature (Simulated)")
+    plt.savefig("hist.png")
+
+    print(normalized_data[:, 0][2000:2020])
+    print(future[:, 0][2000:2020])
+
+    # Line plot
+    plt.clf()
+    x = range(0, normalized_data.shape[0])
+    plt.plot(x, normalized_data[:, 0], label="Actual Thermocline Depth")
+    plt.plot(x, future[:, 0], label="Simulated Thermocline Depth")
+    plt.legend()
+    plt.savefig("therm_line.png")
+
+    plt.clf()
+    x = range(0, normalized_data.shape[0])
+    plt.plot(x, normalized_data[:, 1], label="Actual Seasurface Temperature")
+    plt.plot(x, future[:, 1], label="Simulated Seasurface Temperature")
+    plt.legend()
+    plt.savefig("ss_line.png")
 
 def simulate_future(
     z_0,
