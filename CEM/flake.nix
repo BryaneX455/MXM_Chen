@@ -7,13 +7,22 @@
   # ];
 
   inputs = {
-    mach-nix.url = "github:DavHau/mach-nix";
+    nixpkgs.url = "github:NixOS/nixpkgs/nixos-21.11";
+    pypi-deps-db = {
+      url = "github:DavHau/pypi-deps-db";
+      flake = false;
+    };
+    mach-nix = {
+      url = "github:DavHau/mach-nix/3.5.0";
+      inputs.pypi-deps-db.follows = "pypi-deps-db";
+      inputs.nixpkgs.follows = "nixpkgs";
+    };
     # jupyter.url = "github:tweag/jupyterWith";
   };
 
   # See: https://gist.github.com/piperswe/6be06f58ba3925801b0dcceab22c997b for more on nix multiarch images.
 
-  outputs = {self, nixpkgs, mach-nix }@inp:
+  outputs = {self, nixpkgs, pypi-deps-db, mach-nix }@inp:
     let
       requirements = builtins.readFile ./requirements.txt;
       python = "python39";

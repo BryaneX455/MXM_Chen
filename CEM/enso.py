@@ -61,7 +61,7 @@ def main():
     print("Sigma: ", sigma)
 
     # Simulate futures and generate histograms
-    future = simulate_future(Z[0], lib, theta/365, 2000*sigma, count=normalized_data.shape[0])
+    future = simulate_future(Z[0], lib, theta/365, sigma, count=normalized_data.shape[0])
     fig, axs = plt.subplots(2, 2, sharey=True, tight_layout=True)
     axs[0][0].hist(normalized_data[:, 0], bins=100)
     axs[0][0].title.set_text("Therm. Depth (Actual, Normalized)")
@@ -73,23 +73,18 @@ def main():
     axs[1][1].title.set_text("Seasurface Temperature (Simulated)")
     plt.savefig("hist.png")
 
-    print(normalized_data[:, 0][2000:2020])
-    print(future[:, 0][2000:2020])
-
     # Line plot
     plt.clf()
+    fig, axs = plt.subplots(2, 1, sharey=True, tight_layout=True)
     x = range(0, normalized_data.shape[0])
-    plt.plot(x, normalized_data[:, 0], label="Actual Thermocline Depth")
-    plt.plot(x, future[:, 0], label="Simulated Thermocline Depth")
-    plt.legend()
-    plt.savefig("therm_line.png")
+    axs[0].plot(x, normalized_data[:, 0], label="Actual Thermocline Depth")
+    axs[0].plot(x, future[:, 0], label="Simulated Thermocline Depth")
+    axs[0].legend()
 
-    plt.clf()
-    x = range(0, normalized_data.shape[0])
-    plt.plot(x, normalized_data[:, 1], label="Actual Seasurface Temperature")
-    plt.plot(x, future[:, 1], label="Simulated Seasurface Temperature")
-    plt.legend()
-    plt.savefig("ss_line.png")
+    axs[1].plot(x, normalized_data[:, 1], label="Actual Seasurface Temperature")
+    axs[1].plot(x, future[:, 1], label="Simulated Seasurface Temperature")
+    axs[1].legend()
+    plt.savefig("line.png")
 
 def simulate_future(
     z_0,
@@ -98,12 +93,12 @@ def simulate_future(
     sigma,
     count=1000,
 ):
-    dt = np.sqrt(1/365)
+    dt = 1/365
     z = z_0
     rv = np.zeros((count, len(z_0)))
     for t in range(0, count):
         f = np.array(list(map(lambda l: l(z, t), function_library)))
-        z = np.matmul(theta, f) + z + dt * np.matmul(sigma, np.random.normal(size=2))
+        z = dt * np.matmul(theta, f) + z + np.sqrt(dt) * np.matmul(sigma, np.random.normal(size=2))
         rv[t] = z
     return rv
 

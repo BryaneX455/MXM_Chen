@@ -185,8 +185,8 @@ def construct_parameter_estimation_matrices(
     M = np.zeros((len(z), len(z[0]), len(parameter_indices)))
     for j in range(0, len(z)):
         for i, t in enumerate(parameter_indices):
-            M[j][t[0]][i] = (f[j][t[1]]/365)
-    return M
+            M[j][t[0]][i] = f[j][t[1]]
+    return M/356
 
 def estimate_sigma(
     z,
@@ -212,6 +212,7 @@ def estimate_parameters(
     physics_constraints=False,
 ):
     M = construct_parameter_estimation_matrices(z,f,parameter_indices)
+    print(M[0])
     Theta = np.zeros((len(parameter_indices)))
     for _ in range(0, 2):
         # print(Theta)
@@ -224,14 +225,14 @@ def estimate_parameters(
                 lambda j: np.matmul(M[j].transpose(), np.matmul(np.linalg.inv(Sigma), M[j])),
                 range(0, len(z))
             )
-        )
+        ) # / len(z)
         c = reduce(
             lambda a,b: a+b, 
             map(
                 lambda j: np.matmul(M[j].transpose(), np.matmul(np.linalg.inv(Sigma), (z[j+1] - z[j]))), 
                 range(0, len(z) - 1)
             )
-        )
+        ) # / len(z)
 
         if physics_constraints:
             H = np.zeros((len(paired_functions), len(parameter_indices)))
